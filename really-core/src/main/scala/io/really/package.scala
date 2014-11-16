@@ -7,13 +7,14 @@ import scala.language.implicitConversions
 package io {
 
   import play.api.data.validation.ValidationError
-  import reactivemongo.api.DefaultDB
   import akka.actor.{ Props, ActorSystem, ActorRef }
   import io.really.model.DataObject
   import io.really.quickSand.QuickSand
   import io.really.protocol._
   import org.joda.time.DateTime
   import play.api.libs.json._
+  import reactivemongo.api.DefaultDB
+  import scala.slick.driver.H2Driver.simple._
 
   package object really {
     type CID = String
@@ -23,6 +24,7 @@ package io {
     type BucketID = String
     type Buckets = Map[R, DataObject]
     type AppId = String
+    type EventType = String
 
     implicit def IntToToken(id: Int): TokenId = LongToToken(id)
 
@@ -79,14 +81,13 @@ package io {
 
       def materializerView: ActorRef
 
-      def mongodbConntection: DefaultDB
+      def mongodbConnection: DefaultDB
 
       def subscriptionManager: ActorRef
 
       def readHandler: ActorRef
 
       def mediator: ActorRef
-
     }
 
     trait withRequestContext {

@@ -237,7 +237,7 @@ object ProtocolFormats {
      * Represent Updated Push Message
      */
     object Updated {
-      def toJson(r: R, rev: Int, ops: List[FieldUpdatedOp]) =
+      def toJson(r: R, rev: Revision, ops: List[FieldUpdatedOp]) =
         Json.obj(
           R -> r,
           Revision -> rev,

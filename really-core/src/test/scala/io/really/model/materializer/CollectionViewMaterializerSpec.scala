@@ -20,7 +20,7 @@ import scala.concurrent.Await
 
 class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
 
-  lazy val collection = globals.mongodbConntection.collection[JSONCollection](s"${BaseActorSpec.authorModel.r.head.collection}")
+  lazy val collection = globals.mongodbConnection.collection[JSONCollection](s"${BaseActorSpec.authorModel.r.head.collection}")
 
   def getObject(r: R): Option[JsObject] = {
     val query = Json.obj("_r" -> r)

@@ -4,10 +4,16 @@
 
 package io.really.gorilla
 
-import akka.actor.{ Props, ActorRef, ActorLogging, Actor }
-import akka.contrib.pattern.DistributedPubSubMediator.{ SubscribeAck, Subscribe }
-import io.really.{ R, CID, ReallyGlobals }
-import io.really.model.FieldKey
+import akka.util.Timeout
+import io.really.protocol.SubscriptionFailure
+import scala.collection.mutable.Map
+import _root_.io.really.model.FieldKey
+import akka.actor._
+import _root_.io.really.{ R, CID, ReallyGlobals }
+import akka.pattern.{ AskTimeoutException, ask }
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.control.NonFatal
 
 class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLogging {
 
@@ -16,33 +22,60 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
   var rSubscriptions: Map[CID, InternalSubscription] = Map.empty
   var roomSubscriptions: Map[CID, InternalSubscription] = Map.empty
 
+  def failedToRegisterNewSubscription(r: R, newSubscriber: ActorRef, reason: String) = {
+    newSubscriber ! SubscriptionFailure(r, 500, reason)
+    log.error(reason)
+  }
+
   def receive = {
     case SubscribeOnR(subData) =>
       rSubscriptions.get(subData.cid).map {
         rSub =>
-          rSub.subscriptionActor ! UpdateSubscriptionFields(subData.fields)
+          rSub.subscriptionActor ! UpdateSubscriptionFields(subData.fields.getOrElse(Set.empty))
       }.getOrElse {
-        val newSubscriber = context.actorOf(Props(classOf[SubscriptionActor], subData, globals), subData.r + "$" + subData.cid)
-        rSubscriptions += subData.cid -> InternalSubscription(newSubscriber, subData.cid, subData.r)
-        //TODO Send Gorilla the new Subscription request
+        val newSubscriber = context.actorOf(Props(classOf[ObjectSubscriber], subData, globals), subData.r + "$"
+          + subData.cid)
+        implicit val timeout = Timeout(globals.config.GorillaConfig.waitForGorillaCenter)
+        val result = globals.gorillaEventCenter ? NewSubscription(subData, newSubscriber)
+        result.onSuccess {
+          case Subscribed =>
+            rSubscriptions += subData.cid -> InternalSubscription(newSubscriber, subData.r)
+            context.watch(newSubscriber)
+            newSubscriber ! Subscribed
+          case _ =>
+            val reason = s"Gorilla Center replied with unexpected response to new subscription request: $subData"
+            failedToRegisterNewSubscription(subData.r, newSubscriber, reason)
+        }
+        result.onFailure {
+          case e: AskTimeoutException =>
+            val reason = s"SubscriptionManager timed out waiting for the Gorilla center response for" +
+              s" subscription $subData"
+            failedToRegisterNewSubscription(subData.r, newSubscriber, reason)
+          case NonFatal(e) =>
+            val reason = s"Unexpected error while asking the Gorilla Center to establish a new subscription: $subData"
+            failedToRegisterNewSubscription(subData.r, newSubscriber, reason)
+        }
       }
-    case SubscribeOnRoom(subData) => ???
+    case SubscribeOnRoom(subData) => ??? //TODO Handle Room subscriptions
     case UnsubscribeFromR(subData) =>
       rSubscriptions.get(subData.cid).map {
         rSub =>
           rSub.subscriptionActor ! Unsubscribe
+          rSubscriptions -= subData.cid
       }
     case UnsubscribeFromRoom(subData) =>
       roomSubscriptions.get(subData.cid).map {
         roomSub =>
-        //TODO Send Gorilla the new Subscription request
+          roomSub.subscriptionActor ! Unsubscribe
+          roomSubscriptions -= subData.cid
       }
+    case Terminated(actor) => ??? //TODO Handle death of subscribers
   }
 }
 
 object SubscriptionManager {
 
-  case class InternalSubscription(subscriptionActor: ActorRef, cid: CID, r: R)
+  case class InternalSubscription(subscriptionActor: ActorRef, r: R)
 
   case class SubscribeOnR(rSubscription: RSubscription)
 
@@ -55,5 +88,7 @@ object SubscriptionManager {
   case class UpdateSubscriptionFields(fields: Set[FieldKey])
 
   case object Unsubscribe
+
+  case object Subscribed
 
 }

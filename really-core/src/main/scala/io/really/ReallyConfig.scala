@@ -4,12 +4,12 @@
 package io.really
 
 import com.typesafe.config.{ Config, ConfigFactory }
-import _root_.io.really.gorilla.EventLogStorageConfig
+import _root_.io.really.gorilla.{ GorillaConfig, EventLogStorageConfig }
 import _root_.io.really.model.{ MongodbConfig, CollectionActorConfig, ShardingConfig }
 import _root_.io.really.quickSand.QuickSandConfig
 
 class ReallyConfig(config: Config) extends QuickSandConfig with ShardingConfig
-    with CollectionActorConfig with MongodbConfig with EventLogStorageConfig {
+    with CollectionActorConfig with MongodbConfig with EventLogStorageConfig with GorillaConfig {
   protected val reference = ConfigFactory.defaultReference()
 
   protected val reallyConfig = config.getConfig("really") withFallback (reference.getConfig("really"))

@@ -225,6 +225,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
       }
       unstashAll()
       context.become(withModel(m))
+    //TODO handle ModelFetchError
     case _ =>
       stash()
   }
@@ -303,18 +304,21 @@ object CollectionActor {
 
   trait Event {
     def r: R
-
     def context: RequestContext
+    def rev: Revision
   }
 
   object Event {
 
-    case class Created(r: R, obj: JsObject, modelVersion: ModelVersion, context: RequestContext) extends Event
+    case class Created(r: R, obj: JsObject, modelVersion: ModelVersion, context: RequestContext) extends Event {
+      val rev = 1L
+    }
 
-    case class Updated(r: R, ops: List[UpdateOp], newRev: Revision, modelVersion: ModelVersion,
+    case class Updated(r: R, ops: List[UpdateOp], rev: Revision, modelVersion: ModelVersion,
       context: RequestContext) extends Event
 
-    case class Deleted(r: R, context: RequestContext) extends Event
+    case class Deleted(r: R, rev: Revision, modelVersion: ModelVersion, context: RequestContext) extends Event
+
   }
 
   trait ValidationResponse

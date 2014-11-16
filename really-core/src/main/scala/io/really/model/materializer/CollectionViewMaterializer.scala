@@ -8,7 +8,7 @@ import akka.persistence.{ SnapshotOffer, PersistentView, Update }
 import io.really.json.collection.JSONCollection
 import io.really.model.persistent.ModelRegistry._
 import io.really.model.CollectionActor._
-import io.really.gorilla.{ ModelUpdatedEvent, PersistentCreatedEvent, PersistentUpdatedEvent, PersistentEvent, ModelDeletedEvent }
+import io.really.gorilla._
 import io.really.protocol.{ UpdateCommand, UpdateOp }
 import io.really.model._
 import io.really._
@@ -52,7 +52,7 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
   /**
    * collection is represent collection object on MongoDB
    */
-  lazy val collection = globals.mongodbConntection.collection[JSONCollection](s"$collectionName")
+  lazy val collection = globals.mongodbConnection.collection[JSONCollection](s"$collectionName")
 
   /**
    * messageMarker is marker for last message consumed and persisted on DB Projection

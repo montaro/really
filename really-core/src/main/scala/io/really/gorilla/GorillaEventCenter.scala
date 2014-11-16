@@ -3,9 +3,10 @@
  */
 package io.really.gorilla
 
-import akka.actor.{ ActorLogging, Actor }
+import akka.actor.{ Props, ActorLogging, Actor }
+import akka.contrib.pattern.DistributedPubSubMediator.Subscribe
 import akka.contrib.pattern.ShardRegion
-import play.api.libs.json.{ Json }
+import io.really.gorilla.SubscriptionManager.Subscribed
 import io.really.model.{ Model, Helpers }
 import io.really._
 
@@ -30,7 +31,9 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
 
   private[this] val config = globals.config.EventLogStorage
 
-  def receive: Receive = handleEvent
+  private[this] var maxMarkers: Map[R, Revision] = Map.empty
+
+  def receive: Receive = handleEvent orElse handleSubscriptions
 
   def handleEvent: Receive = {
     case msg: PersistentEvent =>
@@ -45,15 +48,28 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
     //todo notify the replayers with model updates
   }
 
+  def handleSubscriptions: Receive = {
+    case NewSubscription(rSub, objectSubscriber) =>
+      maxMarkers.get(r) map {
+        rev =>
+          val replayer = context.actorOf(Props(new Replayer(globals, objectSubscriber, rSub, Some(rev))))
+          globals.mediator ! Subscribe(rSub.r.toString, replayer)
+          sender() ! Subscribed
+      }
+      val replayer = context.actorOf(Props(new Replayer(globals, objectSubscriber, rSub, None)))
+      globals.mediator ! Subscribe(rSub.r.toString, replayer)
+      sender() ! Subscribed
+  }
+
   private def persistEvent(persistentEvent: PersistentEvent): GorillaLogResponse =
     persistentEvent match {
       case PersistentCreatedEvent(event) =>
-        events += EventLog("create", event.r.toString, event.modelVersion, Json.stringify(event.obj),
-          Json.stringify(UserInfo.fmt.writes(event.context.auth)), None)
+        events += EventLog("created", event.r, 1l, event.modelVersion, event.obj,
+          event.context.auth, None)
         EventStored
       case PersistentUpdatedEvent(event, obj) =>
-        events += EventLog("update", event.r.toString, event.modelVersion, Json.stringify(obj),
-          Json.stringify(UserInfo.fmt.writes(event.context.auth)), Some(Json.stringify(Json.toJson(event.ops))))
+        events += EventLog("updated", event.r, event.rev, event.modelVersion, obj,
+          event.context.auth, Some(event.ops))
         EventStored
       case _ => GorillaLogError.UnsupportedEvent
     }
@@ -89,17 +105,15 @@ class GorillaEventCenterSharding(config: ReallyConfig) {
    * ID is the BucketId
    */
   val idExtractor: ShardRegion.IdExtractor = {
-    case persistentEvent: PersistentEvent => Helpers.getBucketIDFromR(persistentEvent.event.r) -> persistentEvent
+    case req: RoutableToGorillaCenter => Helpers.getBucketIDFromR(req.r) -> req
     case modelEvent: ModelEvent => modelEvent.bucketID -> modelEvent
-    //todo handle streaming events
   }
 
   /**
    * Shard Resolver for Akka Sharding extension
    */
   val shardResolver: ShardRegion.ShardResolver = {
-    case persistentEvent: PersistentEvent => (Helpers.getBucketIDFromR(persistentEvent.event.r).hashCode % maxShards).toString
+    case req: RoutableToGorillaCenter => (Helpers.getBucketIDFromR(req.r).hashCode % maxShards).toString
     case modelEvent: ModelEvent => (modelEvent.bucketID.hashCode % maxShards).toString
-    //todo handle streaming events
   }
 }

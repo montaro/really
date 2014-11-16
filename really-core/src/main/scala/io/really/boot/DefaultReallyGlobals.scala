@@ -27,7 +27,7 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
   private val requestRouter_ = new AtomicReference[ActorRef]
   private val collectionActor_ = new AtomicReference[ActorRef]
   private val gorillaEventCenter_ = new AtomicReference[ActorRef]
-  private val mongodbConntection_ = new AtomicReference[DefaultDB]
+  private val mongodbConnection_ = new AtomicReference[DefaultDB]
   private val subscriptionManager_ = new AtomicReference[ActorRef]
   private val mediator_ = new AtomicReference[ActorRef]
   private val materializer_ = new AtomicReference[ActorRef]
@@ -40,7 +40,7 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
   override lazy val requestRouter = requestRouter_.get
   override lazy val collectionActor = collectionActor_.get
   override lazy val gorillaEventCenter = gorillaEventCenter_.get
-  override lazy val mongodbConntection = mongodbConntection_.get
+  override lazy val mongodbConnection = mongodbConnection_.get
   override lazy val subscriptionManager = subscriptionManager_.get
   override lazy val mediator = mediator_.get
   override lazy val materializerView = materializer_.get
@@ -73,7 +73,7 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
     implicit val ec = actorSystem.dispatcher
     val mongoDriver = new MongoDriver
     val connection = mongoDriver.connection(config.Mongodb.servers)
-    mongodbConntection_.set(connection(config.Mongodb.dbName))
+    mongodbConnection_.set(connection(config.Mongodb.dbName))
 
     receptionist_.set(actorSystem.actorOf(receptionistProps, "requests"))
     quickSand_.set(new QuickSand(config, actorSystem))
