@@ -22,7 +22,7 @@ abstract class BaseActorSpec(conf: ReallyConfig = TestConf.getConfig()) extends 
   implicit val timeout = Timeout(5, TimeUnit.SECONDS)
   implicit val executionContext = system.dispatcher
   implicit val config: ReallyConfig = conf
-  val globals = new TestReallyGlobals(config, system)
+  lazy val globals = new TestReallyGlobals(config, system)
   val ctx = RequestContext(
     1,
     UserInfo(AuthProvider.Anonymous, R("/_anonymous/1234567"), Application("reallyApp")),

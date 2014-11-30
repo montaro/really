@@ -5,7 +5,7 @@ package io.really.boot
 
 import java.util.concurrent.atomic.AtomicReference
 import akka.actor._
-import akka.contrib.pattern.{ DistributedPubSubExtension }
+import akka.contrib.pattern.DistributedPubSubExtension
 import _root_.io.really.gorilla._
 import _root_.io.really.model.persistent.{ ModelRegistry, RequestRouter, PersistentModelStore }
 import _root_.io.really.model.materializer.{ MaterializerSharding, CollectionViewMaterializer }
@@ -109,6 +109,9 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
 
     subscriptionManager_.set(actorSystem.actorOf(subscriptionManagerProps, "subscription-manager"))
   }
+
+  def objectSubscriberProps(rSubscription: RSubscription): Props =
+    Props(classOf[ObjectSubscriber], rSubscription, this)
 
   override def shutdown(): Unit = {
     actorSystem.shutdown()

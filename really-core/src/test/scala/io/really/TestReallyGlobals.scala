@@ -7,12 +7,16 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.{ ActorSystem, Props, ActorRef }
 import akka.contrib.pattern.{ DistributedPubSubExtension, ClusterSharding }
-import _root_.io.really.gorilla.{ SubscriptionManager, GorillaEventCenterSharding, GorillaEventCenter }
 import _root_.io.really.model.CollectionSharding
 import _root_.io.really.quickSand.QuickSand
 import _root_.io.really.model.persistent.{ ModelRegistry, RequestRouter }
-import _root_.io.really.fixture.{ PersistentModelStoreFixture, TestCollectionActor, MaterializerTest }
 import _root_.io.really.model.materializer.MaterializerSharding
+import _root_.io.really.fixture.MaterializerTest
+import _root_.io.really.fixture.TestCollectionActor
+import _root_.io.really.fixture._
+import _root_.io.really.gorilla.ObjectSubscriber
+import _root_.io.really.gorilla.RSubscription
+import _root_.io.really.gorilla._
 import play.api.libs.json.JsObject
 import reactivemongo.api.{ DefaultDB, MongoDriver }
 import scala.collection.JavaConversions._
@@ -49,7 +53,7 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   private val db = Database.forURL(config.EventLogStorage.databaseUrl, driver = config.EventLogStorage.driver)
   private val modelRegistryPersistentId = "model-registry-persistent-test"
 
-  def requestProps(ctx: RequestContext, replyTo: ActorRef, cmd: String, body: JsObject): Props =
+  override def requestProps(ctx: RequestContext, replyTo: ActorRef, cmd: String, body: JsObject): Props =
     Props(new RequestDelegate(this, ctx, replyTo, cmd, body))
 
   //todo this should be dynamically loaded from configuration
@@ -66,6 +70,9 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   override val subscriptionManagerProps = Props(classOf[SubscriptionManager], this)
   override val materializerProps = Props(classOf[MaterializerTest], this)
   override val persistentModelStoreProps = Props(classOf[PersistentModelStoreFixture], this, modelRegistryPersistentId)
+
+  override def objectSubscriberProps(rSubscription: RSubscription): Props =
+    Props(classOf[ObjectSubscriber], rSubscription, this)
 
   override def boot() = {
     implicit val ec = actorSystem.dispatcher

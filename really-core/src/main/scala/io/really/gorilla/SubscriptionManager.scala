@@ -22,18 +22,13 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
   var rSubscriptions: Map[CID, InternalSubscription] = Map.empty
   var roomSubscriptions: Map[CID, InternalSubscription] = Map.empty
 
-  def failedToRegisterNewSubscription(r: R, newSubscriber: ActorRef, reason: String) = {
-    newSubscriber ! SubscriptionFailure(r, 500, reason)
-    log.error(reason)
-  }
-
   def receive = {
     case SubscribeOnR(subData) =>
       rSubscriptions.get(subData.cid).map {
         rSub =>
           rSub.subscriptionActor ! UpdateSubscriptionFields(subData.fields.getOrElse(Set.empty))
       }.getOrElse {
-        val newSubscriber = context.actorOf(Props(classOf[ObjectSubscriber], subData, globals), subData.r + "$"
+        val newSubscriber = context.actorOf(globals.objectSubscriberProps(subData), subData.r.actorFriendlyStr + "$"
           + subData.cid)
         implicit val timeout = Timeout(globals.config.GorillaConfig.waitForGorillaCenter)
         val result = globals.gorillaEventCenter ? NewSubscription(subData, newSubscriber)
@@ -44,16 +39,19 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
             newSubscriber ! Subscribed
           case _ =>
             val reason = s"Gorilla Center replied with unexpected response to new subscription request: $subData"
-            failedToRegisterNewSubscription(subData.r, newSubscriber, reason)
+            log.error(reason)
+            newSubscriber ! SubscriptionFailure(subData.r, 500, reason)
         }
         result.onFailure {
           case e: AskTimeoutException =>
             val reason = s"SubscriptionManager timed out waiting for the Gorilla center response for" +
               s" subscription $subData"
-            failedToRegisterNewSubscription(subData.r, newSubscriber, reason)
+            log.error(reason)
+            newSubscriber ! SubscriptionFailure(subData.r, 500, reason)
           case NonFatal(e) =>
             val reason = s"Unexpected error while asking the Gorilla Center to establish a new subscription: $subData"
-            failedToRegisterNewSubscription(subData.r, newSubscriber, reason)
+            log.error(reason)
+            newSubscriber ! SubscriptionFailure(subData.r, 500, reason)
         }
       }
     case SubscribeOnRoom(subData) => ??? //TODO Handle Room subscriptions

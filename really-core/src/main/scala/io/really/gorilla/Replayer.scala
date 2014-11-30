@@ -24,8 +24,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import EventLogs._
 
 class Replayer(globals: ReallyGlobals, objectSubscriber: ActorRef, rSubscription: RSubscription,
-    maxMarker: Option[Revision])(implicit session: Session)  extends Actor with ActorLogging with Stash {
-
+    maxMarker: Option[Revision])(implicit session: Session) extends Actor with ActorLogging with Stash {
 
   val replayerId = s"Replayer ${rSubscription.cid}$$${rSubscription.r}"
 

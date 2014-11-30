@@ -9,6 +9,7 @@ package io {
   import play.api.data.validation.ValidationError
   import akka.actor.{ Props, ActorSystem, ActorRef }
   import io.really.model.DataObject
+  import io.really.gorilla.RSubscription
   import io.really.quickSand.QuickSand
   import io.really.protocol._
   import org.joda.time.DateTime
@@ -44,6 +45,8 @@ package io {
       def shutdown(): Unit
 
       def requestProps(ctx: RequestContext, replyTo: ActorRef, cmd: String, body: JsObject): Props
+
+      def objectSubscriberProps(rSubscription: RSubscription): Props
 
       def receptionistProps: Props
 
