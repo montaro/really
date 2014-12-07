@@ -9,7 +9,8 @@ import io.really.protocol.SubscriptionFailure
 import scala.collection.mutable.Map
 import _root_.io.really.model.FieldKey
 import akka.actor._
-import _root_.io.really.{ R, CID, ReallyGlobals }
+import _root_.io.really.{ R, ReallyGlobals }
+import _root_.io.really.WrappedSubscriptionRequest.WrappedSubscribe
 import akka.pattern.{ AskTimeoutException, ask }
 import io.really.Request
 
@@ -32,7 +33,7 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
   }
 
   def receive = {
-    case request: Request.Subscribe =>
+    case request: WrappedSubscribe =>
       context.actorOf(Props(new SubscribeAggregator(self))) forward request
     case Request.Unsubscribe =>
       ???
