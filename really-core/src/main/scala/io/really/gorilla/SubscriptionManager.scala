@@ -11,61 +11,70 @@ import _root_.io.really.model.FieldKey
 import akka.actor._
 import _root_.io.really.{ R, CID, ReallyGlobals }
 import akka.pattern.{ AskTimeoutException, ask }
+import io.really.Request
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.control.NonFatal
 
 class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLogging {
 
+  type SubscriberIdentifier = ActorPath
+
   import SubscriptionManager._
 
-  var rSubscriptions: Map[CID, InternalSubscription] = Map.empty
-  var roomSubscriptions: Map[CID, InternalSubscription] = Map.empty
+  var rSubscriptions: Map[SubscriberIdentifier, InternalSubscription] = Map.empty
+  var roomSubscriptions: Map[SubscriberIdentifier, InternalSubscription] = Map.empty
+
+  def failedToRegisterNewSubscription(r: R, newSubscriber: ActorRef, reason: String) = {
+    newSubscriber ! SubscriptionFailure(r, 500, reason)
+    sender() ! SubscriptionFailure(r, 500, reason)
+    log.error(reason)
+  }
 
   def receive = {
+    case request: Request.Subscribe =>
+      context.actorOf(Props(new SubscribeAggregator(self))) forward request
+    case Request.Unsubscribe =>
+      ???
     case SubscribeOnR(subData) =>
-      rSubscriptions.get(subData.cid).map {
+      rSubscriptions.get(subData.pushChannel.path).map {
         rSub =>
           rSub.subscriptionActor ! UpdateSubscriptionFields(subData.fields.getOrElse(Set.empty))
       }.getOrElse {
-        val newSubscriber = context.actorOf(globals.objectSubscriberProps(subData), subData.r.actorFriendlyStr + "$"
-          + subData.cid)
         implicit val timeout = Timeout(globals.config.GorillaConfig.waitForGorillaCenter)
-        val result = globals.gorillaEventCenter ? NewSubscription(subData, newSubscriber)
+        val result = globals.gorillaEventCenter ? NewSubscription(subData)
         result.onSuccess {
-          case Subscribed =>
-            rSubscriptions += subData.cid -> InternalSubscription(newSubscriber, subData.r)
-            context.watch(newSubscriber)
-            newSubscriber ! Subscribed
+          case ObjectSubscribed(newSubscriber) =>
+            rSubscriptions += subData.pushChannel.path -> InternalSubscription(newSubscriber, subData.r)
+            context.watch(newSubscriber) //TODO handle death
+            context.watch(subData.pushChannel) //TODO handle death
+            sender() ! SubscriptionDone
           case _ =>
             val reason = s"Gorilla Center replied with unexpected response to new subscription request: $subData"
-            log.error(reason)
-            newSubscriber ! SubscriptionFailure(subData.r, 500, reason)
+            failedToRegisterNewSubscription(subData.r, subData.pushChannel, reason)
         }
         result.onFailure {
           case e: AskTimeoutException =>
             val reason = s"SubscriptionManager timed out waiting for the Gorilla center response for" +
               s" subscription $subData"
-            log.error(reason)
-            newSubscriber ! SubscriptionFailure(subData.r, 500, reason)
+            failedToRegisterNewSubscription(subData.r, subData.pushChannel, reason)
           case NonFatal(e) =>
             val reason = s"Unexpected error while asking the Gorilla Center to establish a new subscription: $subData"
-            log.error(reason)
-            newSubscriber ! SubscriptionFailure(subData.r, 500, reason)
+            failedToRegisterNewSubscription(subData.r, subData.pushChannel, reason)
         }
       }
     case SubscribeOnRoom(subData) => ??? //TODO Handle Room subscriptions
     case UnsubscribeFromR(subData) =>
-      rSubscriptions.get(subData.cid).map {
+      rSubscriptions.get(subData.pushChannel.path).map {
         rSub =>
           rSub.subscriptionActor ! Unsubscribe
-          rSubscriptions -= subData.cid
+          rSubscriptions -= subData.pushChannel.path
       }
     case UnsubscribeFromRoom(subData) =>
-      roomSubscriptions.get(subData.cid).map {
+      roomSubscriptions.get(subData.pushChannel.path).map {
         roomSub =>
           roomSub.subscriptionActor ! Unsubscribe
-          roomSubscriptions -= subData.cid
+          roomSubscriptions -= subData.pushChannel.path
       }
     case Terminated(actor) => ??? //TODO Handle death of subscribers
   }
@@ -87,6 +96,8 @@ object SubscriptionManager {
 
   case object Unsubscribe
 
-  case object Subscribed
+  case class ObjectSubscribed(objectSubscriber: ActorRef)
+
+  case object SubscriptionDone
 
 }

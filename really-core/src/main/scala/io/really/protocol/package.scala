@@ -171,19 +171,6 @@ package object protocol {
   }
 
   /*
-   * Represent subscription result
-   */
-  case class SubscriptionOpResult(r: R, fields: Set[String])
-
-  //TODO change fields type
-  /*
-   * Represent implicit JSON Format for subscription operation result
-   */
-  object SubscriptionOpResult {
-    implicit val fmt = Json.format[SubscriptionOpResult]
-  }
-
-  /*
    * Represent object data and meta data related to this object on read response
    */
   case class ReadItem(body: JsObject, meta: JsObject)

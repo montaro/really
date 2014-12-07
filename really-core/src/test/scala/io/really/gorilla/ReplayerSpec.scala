@@ -48,13 +48,12 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpec(config) {
     val requestDelegate = TestProbe().ref
     val pushChannel = TestProbe().ref
     val rev = 23
-    val cid = "88"
     val r: R = R / 'users / 123
-    val rSub = RSubscription(ctx, cid, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
     val replayer = TestActorRef[Replayer](Props(new Replayer(globals, objectSubActor.ref, rSub, Some(rev))))
     replayer.underlyingActor.r should be(r)
     replayer.underlyingActor.min should be(rev)
-    replayer.underlyingActor.replayerId should be(s"Replayer ${rSub.cid}$$${rSub.r}")
+    replayer.underlyingActor.replayerId should be(s"Replayer ${rSub.pushChannel.path}$$${rSub.r}")
 
     //Test handling unexpected message
     EventFilter.warning(message = s"${replayer.underlyingActor.replayerId} has received an unexpected message:" +
@@ -79,9 +78,8 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpec(config) {
     val requestDelegate = TestProbe().ref
     val pushChannel = TestProbe().ref
     val rev: Revision = 2L
-    val cid = "88"
     val r: R = R / 'users / 124
-    val rSub = RSubscription(ctx, cid, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
     val obj = Json.obj("name" -> "Sara", "age" -> 20)
     val createdEvent = Created(r, obj, 1l, ctx)
@@ -127,9 +125,8 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpec(config) {
       val requestDelegate = TestProbe().ref
       val pushChannel = TestProbe().ref
       val rev: Revision = 3L
-      val cid = "88"
       val r: R = R / 'users / 125
-      val rSub = RSubscription(ctx, cid, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
       val obj = Json.obj("name" -> "Sara", "age" -> 20)
       val createdEvent = Created(r, obj, 1l, ctx)
@@ -169,9 +166,8 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpec(config) {
       val requestDelegate = TestProbe().ref
       val pushChannel = TestProbe().ref
       val rev: Revision = 33L
-      val cid = "88"
       val r: R = R / 'users / 126
-      val rSub = RSubscription(ctx, cid, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
       val obj = Json.obj("name" -> "Sara", "age" -> 20)
       val createdEvent = Created(r, obj, 1l, ctx)
@@ -209,9 +205,8 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpec(config) {
       val requestDelegate = TestProbe().ref
       val pushChannel = TestProbe().ref
       val rev: Revision = 10L
-      val cid = "88"
       val r: R = R / 'users / 127
-      val rSub = RSubscription(ctx, cid, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
 
       val replayer = TestActorRef[Replayer](Props(new Replayer(globals, objectSubActor.ref, rSub, Some(5))))
@@ -232,9 +227,8 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpec(config) {
     val requestDelegate = TestProbe().ref
     val pushChannel = TestProbe().ref
     val rev: Revision = 2L
-    val cid = "88"
     val r: R = R / 'users / 128
-    val rSub = RSubscription(ctx, cid, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
 
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
@@ -287,9 +281,8 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpec(config) {
       val requestDelegate = TestProbe().ref
       val pushChannel = TestProbe().ref
       val rev: Revision = 2L
-      val cid = "88"
       val r: R = R / 'users / 129
-      val rSub = RSubscription(ctx, cid, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
 
       globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
@@ -345,9 +338,8 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpec(config) {
     val requestDelegate = TestProbe().ref
     val pushChannel = TestProbe().ref
     val rev: Revision = 2L
-    val cid = "88"
     val r: R = R / 'users / 130
-    val rSub = RSubscription(ctx, cid, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
 
     val replayer = TestActorRef[Replayer](Props(new Replayer(globals, objectSubActor.ref, rSub, Some(5L))))
@@ -363,9 +355,8 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpec(config) {
     val requestDelegate = TestProbe().ref
     val pushChannel = TestProbe().ref
     val rev: Revision = 1L
-    val cid = "88"
     val r: R = R / 'users / 131
-    val rSub = RSubscription(ctx, cid, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
     val fullObj1 = Json.obj("_r" -> r.toString, "_rev" -> 1L, "name" -> "Sara", "age" -> 20)
     val createdEvent = Created(r, fullObj1, 1l, ctx)
@@ -414,9 +405,8 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpec(config) {
       val requestDelegate = TestProbe().ref
       val pushChannel = TestProbe().ref
       val rev: Revision = 2L
-      val cid = "88"
       val r: R = R / 'users / 132
-      val rSub = RSubscription(ctx, cid, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
 
       globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
@@ -457,9 +447,8 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpec(config) {
       val requestDelegate = TestProbe().ref
       val pushChannel = TestProbe().ref
       val rev: Revision = 2L
-      val cid = "88"
       val r: R = R / 'users / 133
-      val rSub = RSubscription(ctx, cid, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
 
       globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
@@ -515,9 +504,8 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpec(config) {
     val requestDelegate = TestProbe().ref
     val pushChannel = TestProbe().ref
     val rev: Revision = 69L
-    val cid = "88"
     val r: R = R / 'users / 134
-    val rSub = RSubscription(ctx, cid, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
 
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)

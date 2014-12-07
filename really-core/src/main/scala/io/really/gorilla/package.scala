@@ -6,7 +6,7 @@ package io.really
 import _root_.io.really.model._
 import _root_.io.really.protocol.UpdateOp
 import _root_.io.really.model.CollectionActor.Event
-import akka.actor.ActorRef
+import akka.actor.{ Props, ActorRef }
 import play.api.libs.json.{ Json, JsObject }
 
 package object gorilla {
@@ -14,15 +14,15 @@ package object gorilla {
   type SubscriptionID = String
   type PushEventType = String
 
-  case class RSubscription(ctx: RequestContext, cid: CID, r: R, fields: Option[Set[FieldKey]], rev: Revision,
+  case class RSubscription(ctx: RequestContext, r: R, fields: Option[Set[FieldKey]], rev: Revision,
     requestDelegate: ActorRef, pushChannel: ActorRef)
 
-  case class RoomSubscription(ctx: RequestContext, cid: CID, r: R, requestDelegate: ActorRef,
+  case class RoomSubscription(ctx: RequestContext, r: R, requestDelegate: ActorRef,
     pushChannel: ActorRef)
 
   trait RoutableToGorillaCenter extends RoutableByR
 
-  case class NewSubscription(rSubscription: RSubscription, objectSubscriber: ActorRef) extends RoutableToGorillaCenter {
+  case class NewSubscription(rSubscription: RSubscription) extends RoutableToGorillaCenter {
     val r = rSubscription.r
   }
 

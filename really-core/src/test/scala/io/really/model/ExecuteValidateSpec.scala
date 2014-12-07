@@ -32,7 +32,6 @@ class ExecuteValidateSpec extends FlatSpec with Matchers {
   val context = RequestContext(
     tag = 1,
     auth = UserInfo(AuthProvider.Anonymous, R("/_anonymous/1234567"), Application("reallyApp")),
-    pushChannel = None,
     meta = RequestMetadata(
       traceId = None,
       when = DateTime.now,

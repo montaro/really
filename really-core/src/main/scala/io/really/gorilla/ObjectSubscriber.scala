@@ -6,7 +6,8 @@ package io.really.gorilla
 
 import akka.actor.{ Stash, ActorLogging, Actor }
 import akka.util.Timeout
-import io.really.gorilla.SubscriptionManager.{ Subscribed, UpdateSubscriptionFields, Unsubscribe }
+import io.really.gorilla.GorillaEventCenter.ReplayerSubscribed
+import io.really.gorilla.SubscriptionManager.{ UpdateSubscriptionFields, Unsubscribe }
 import io.really.ReallyGlobals
 import io.really.model.FieldKey
 import io.really.model.persistent.ModelRegistry.CollectionActorMessage.GetModel
@@ -27,7 +28,7 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
     with Stash {
 
   val r = rSubscription.r
-  val logTag = s"ObjectSubscriber ${rSubscription.cid}$$$r"
+  val logTag = s"ObjectSubscriber ${rSubscription.pushChannel.path}$$$r"
 
   var fields: Set[FieldKey] = rSubscription.fields match {
     case Some(fs) => Set(fs.toSeq: _*)
@@ -47,12 +48,14 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
       context.stop(self)
     case SubscriptionFailure(r, errorCode, reason) =>
       subscriptionFailed(errorCode, "Internal Server Error")
+    //TODO handle Replayer death
   }
 
   def receive: Receive = commonHandler orElse starterReceive
 
   def starterReceive: Receive = {
-    case Subscribed =>
+    case ReplayerSubscribed(replayer) =>
+      context.watch(replayer)
       implicit val timeout = Timeout(globals.config.GorillaConfig.waitForModel)
       val f = (globals.modelRegistry ? GetModel(rSubscription.r, self)).mapTo[ModelResult]
       f.recoverWith {

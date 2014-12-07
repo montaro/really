@@ -6,11 +6,21 @@ package io.really.model.persistent
 import _root_.io.really._
 import akka.actor.ActorLogging
 import akka.persistence.PersistentView
+import _root_.io.really.WrappedSubscriptionRequest._
 
+<<<<<<< HEAD
 class RequestRouter(globals: ReallyGlobals, persistId: String) extends PersistentView with ActorLogging {
   import RequestRouter._
 
   override def persistenceId: String = persistId
+=======
+class RequestRouter(globals: ReallyGlobals) extends PersistentView with ActorLogging {
+
+  import RequestRouter._
+
+  override def persistenceId: String = "model-registry-persistent"
+
+>>>>>>> dd361ae... REALLY-64 Implemented the SubscribeRequestAggregator
   override def viewId: String = "request-router-view"
 
   private var models: List[R] = List.empty
@@ -37,15 +47,12 @@ class RequestRouter(globals: ReallyGlobals, persistId: String) extends Persisten
       globals.readHandler forward req
     case req: Request with RoutableToReadHandler =>
       sender ! RequestRouterResponse.RNotFound(req.r)
-    case req: Request with RoutableToSubscriptionManager with RoutableByR if validR(req.r) =>
-      globals.subscriptionManager forward req
-    case req: Request with RoutableToSubscriptionManager with RoutableByR =>
-      sender ! RequestRouterResponse.RNotFound(req.r)
-    case req: Request with RoutableToSubscriptionManager =>
+    case req: RoutableToSubscriptionManager =>
       globals.subscriptionManager forward req
     case req: Request =>
       sender ! RequestRouterResponse.UnsupportedCmd(req.getClass.getName)
   }
+
 }
 
 object RequestRouter {
@@ -59,4 +66,5 @@ object RequestRouter {
     case class UnsupportedCmd(cmd: String) extends RequestRouterResponse
 
   }
+
 }

@@ -50,13 +50,6 @@ object ProtocolFormats {
     }
 
     /*
-     * JSON Reads for [[io.really.Request.GetSubscription]] Request
-     */
-    object GetSubscription {
-      def read(ctx: RequestContext) = (rReads) map (r => Request.GetSubscription(ctx, r))
-    }
-
-    /*
      * JSON Reads for [[io.really.Request.Get]] Request
      */
     object Get {
@@ -70,6 +63,7 @@ object ProtocolFormats {
      */
     object Update {
       val bodyReads = (__ \ 'body).read[UpdateBody]
+
       def read(ctx: RequestContext) =
         (rReads and revReads and bodyReads)((r, rev, body) => Request.Update(ctx, r, rev, body))
     }
@@ -106,14 +100,15 @@ object ProtocolFormats {
    * Represent JSON Writes for Responses
    */
   object ResponseWrites {
+
     /*
      * Represent JSON Writes for Subscribe Response
      */
     object Subscribe {
-      def toJson(request: Request.Subscribe, response: SubscribeResult) =
+      def toJson(tag: Tag, rs: Set[R]) =
         Json.obj(
-          Tag -> request.ctx.tag,
-          Body -> Json.obj("subscriptions" -> response.subscriptions)
+          Tag -> tag,
+          Body -> Json.obj("subscriptions" -> rs)
         )
     }
 
@@ -121,22 +116,10 @@ object ProtocolFormats {
      * Represent JSON Writes for Unsubscribe Response
      */
     object Unsubscribe {
-      def toJson(request: Request.Unsubscribe, response: UnsubscribeResult) =
+      def toJson(tag: Tag, rs: Set[R]) =
         Json.obj(
-          Tag -> request.ctx.tag,
-          Body -> Json.obj("unsubscriptions" -> response.unsubscriptions)
-        )
-    }
-
-    /*
-     * Represent JSON Writes for [[io.really.Response.GetSubscription]] Response
-     */
-    object GetSubscription {
-      def toJson(request: Request.GetSubscription, response: GetSubscriptionResult) =
-        Json.obj(
-          Tag -> request.ctx.tag,
-          R -> request.r,
-          Body -> Json.obj("fields" -> response.fields)
+          Tag -> tag,
+          Body -> Json.obj("subscriptions" -> rs)
         )
     }
 
@@ -245,6 +228,7 @@ object ProtocolFormats {
           Body -> Json.toJson(ops)(FieldUpdatedOp.FieldUpdatedOpListWrites)
         )
     }
+
   }
 
 }

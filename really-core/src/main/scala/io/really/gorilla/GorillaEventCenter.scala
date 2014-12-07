@@ -3,10 +3,10 @@
  */
 package io.really.gorilla
 
-import akka.actor.{ Props, ActorLogging, Actor }
+import akka.actor.{ ActorRef, Props, ActorLogging, Actor }
 import akka.contrib.pattern.DistributedPubSubMediator.Subscribe
 import akka.contrib.pattern.ShardRegion
-import io.really.gorilla.SubscriptionManager.Subscribed
+import io.really.gorilla.SubscriptionManager.ObjectSubscribed
 import io.really.model.{ Model, Helpers }
 import io.really._
 
@@ -49,16 +49,19 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
   }
 
   def handleSubscriptions: Receive = {
-    case NewSubscription(rSub, objectSubscriber) =>
-      maxMarkers.get(r) map {
-        rev =>
+    case NewSubscription(rSub) =>
+      val objectSubscriber = context.actorOf(Props(new ObjectSubscriber(rSub, globals)))
+      maxMarkers.get(r) match {
+        case Some(rev) =>
           val replayer = context.actorOf(Props(new Replayer(globals, objectSubscriber, rSub, Some(rev))))
           globals.mediator ! Subscribe(rSub.r.toString, replayer)
-          sender() ! Subscribed
+          objectSubscriber ! ReplayerSubscribed(replayer)
+        case None =>
+          val replayer = context.actorOf(Props(new Replayer(globals, objectSubscriber, rSub, None)))
+          globals.mediator ! Subscribe(rSub.r.toString, replayer)
+          objectSubscriber ! ReplayerSubscribed(replayer)
       }
-      val replayer = context.actorOf(Props(new Replayer(globals, objectSubscriber, rSub, None)))
-      globals.mediator ! Subscribe(rSub.r.toString, replayer)
-      sender() ! Subscribed
+      sender() ! ObjectSubscribed(objectSubscriber)
   }
 
   private def persistEvent(persistentEvent: PersistentEvent): GorillaLogResponse =
@@ -91,6 +94,8 @@ object GorillaEventCenter {
     if (MTable.getTables(EventLogs.tableName).list.isEmpty) {
       events.ddl.create
     }
+
+  case class ReplayerSubscribed(replayer: ActorRef)
 
 }
 

@@ -110,13 +110,6 @@ class RequestRouterSpec extends BaseActorSpec {
     globals.subscriptionManagerTestProps.expectMsg(req)
   }
 
-  it should "forward message to subscription manager if command id GetSubscription" in {
-    val r = R / "boards" / 45
-    val req = Request.GetSubscription(ctx, r)
-    requestRouterRef ! req
-    globals.subscriptionManagerTestProps.expectMsg(req)
-  }
-
 }
 
 class RequestRouterGlobals(override val config: ReallyConfig, override val actorSystem: ActorSystem) extends TestReallyGlobals(config, actorSystem) {

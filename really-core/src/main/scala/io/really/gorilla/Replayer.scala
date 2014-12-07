@@ -26,7 +26,7 @@ import EventLogs._
 class Replayer(globals: ReallyGlobals, objectSubscriber: ActorRef, rSubscription: RSubscription,
     maxMarker: Option[Revision])(implicit session: Session) extends Actor with ActorLogging with Stash {
 
-  val replayerId = s"Replayer ${rSubscription.cid}$$${rSubscription.r}"
+  val replayerId = s"Replayer ${rSubscription.pushChannel.path}$$${rSubscription.r}"
 
   val min = rSubscription.rev
   private[gorilla] val r = rSubscription.r

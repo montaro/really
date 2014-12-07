@@ -22,13 +22,9 @@ abstract class BaseActorSpec(conf: ReallyConfig = TestConf.getConfig()) extends 
   implicit val timeout = Timeout(5, TimeUnit.SECONDS)
   implicit val executionContext = system.dispatcher
   implicit val config: ReallyConfig = conf
-  lazy val globals = new TestReallyGlobals(config, system)
-  val ctx = RequestContext(
-    1,
-    UserInfo(AuthProvider.Anonymous, R("/_anonymous/1234567"), Application("reallyApp")),
-    None, RequestMetadata(None, DateTime.now, "localhost",
-      RequestProtocol.WebSockets)
-  )
+  val globals = new TestReallyGlobals(config, system)
+  val ctx = RequestContext(1, UserInfo(AuthProvider.Anonymous, R("/_anonymous/1234567"), Application("reallyApp")),
+    RequestMetadata(None, DateTime.now, "localhost", RequestProtocol.WebSockets))
 
   override def beforeAll() = {
     globals.boot()

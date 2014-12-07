@@ -26,6 +26,7 @@ package io {
     type Buckets = Map[R, DataObject]
     type AppId = String
     type EventType = String
+    type Tag = Int
 
     implicit def IntToToken(id: Int): TokenId = LongToToken(id)
 
@@ -115,8 +116,6 @@ package io {
 
       case class Unsubscribe(ctx: RequestContext, body: UnsubscriptionBody) extends Request with RoutableToSubscriptionManager
 
-      case class GetSubscription(ctx: RequestContext, r: R) extends Request with RoutableByR with RoutableToSubscriptionManager
-
       case class Get(ctx: RequestContext, r: R, cmdOpts: GetOpts) extends Request with RoutableToReadHandler
 
       case class Update(ctx: RequestContext, r: R, rev: Long, body: UpdateBody) extends Request with RoutableToCollectionActor
@@ -129,6 +128,14 @@ package io {
 
     }
 
+    object WrappedSubscriptionRequest {
+
+      case class WrappedSubscribe(subscribeObject: Request.Subscribe, pushChannel: ActorRef) extends RoutableToSubscriptionManager
+
+      case class WrappedUnsubscribe(unsubscribeObject: Request.Unsubscribe, pushChannel: ActorRef) extends RoutableToSubscriptionManager
+
+    }
+
     trait InternalRequest extends RoutableToCollectionActor
 
     trait InternalResponse extends Response
@@ -138,10 +145,6 @@ package io {
     trait Result extends Response
 
     object Result {
-
-      case class SubscribeResult(subscriptions: Set[SubscriptionOpResult]) extends Result
-
-      case class UnsubscribeResult(unsubscriptions: Set[SubscriptionOpResult]) extends Result
 
       case class GetSubscriptionResult(fields: Set[String]) extends Result
 
@@ -203,8 +206,13 @@ package io {
     }
 
     /*
+<<<<<<< HEAD
    * Represent implicit format for AuthProvider
    */
+=======
+* Represent implicit format for AuthProvider
+*/
+>>>>>>> dd361ae... REALLY-64 Implemented the SubscribeRequestAggregator
     implicit object AuthProviderFmt extends Format[AuthProvider] {
 
       import AuthProvider._
@@ -242,7 +250,7 @@ package io {
 
     case class RequestMetadata(traceId: Option[String], when: DateTime, host: String, protocol: RequestProtocol)
 
-    case class RequestContext(tag: Long, auth: UserInfo, pushChannel: Option[ActorRef], meta: RequestMetadata)
+    case class RequestContext(tag: Tag, auth: UserInfo, meta: RequestMetadata)
 
   }
 
