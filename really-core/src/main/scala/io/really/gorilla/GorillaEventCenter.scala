@@ -3,7 +3,7 @@
  */
 package io.really.gorilla
 
-import akka.actor.{ ActorRef, Props, ActorLogging, Actor }
+import akka.actor._
 import akka.contrib.pattern.DistributedPubSubMediator.Subscribe
 import akka.contrib.pattern.ShardRegion
 import io.really.gorilla.SubscriptionManager.ObjectSubscribed
@@ -50,7 +50,7 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
 
   def handleSubscriptions: Receive = {
     case NewSubscription(rSub) =>
-      val objectSubscriber = context.actorOf(Props(new ObjectSubscriber(rSub, globals)))
+      val objectSubscriber = context.actorOf(globals.objectSubscriberProps(rSub))
       maxMarkers.get(r) match {
         case Some(rev) =>
           val replayer = context.actorOf(Props(new Replayer(globals, objectSubscriber, rSub, Some(rev))))
@@ -62,6 +62,9 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
           objectSubscriber ! ReplayerSubscribed(replayer)
       }
       sender() ! ObjectSubscribed(objectSubscriber)
+    case Terminated(actor) =>
+      log.info("Actor Terminated" + actor)
+
   }
 
   private def persistEvent(persistentEvent: PersistentEvent): GorillaLogResponse =

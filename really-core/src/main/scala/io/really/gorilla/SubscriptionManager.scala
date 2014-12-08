@@ -38,6 +38,7 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
     case Request.Unsubscribe =>
       ???
     case SubscribeOnR(subData) =>
+      val actualSender = sender()
       rSubscriptions.get(subData.pushChannel.path).map {
         rSub =>
           rSub.subscriptionActor ! UpdateSubscriptionFields(subData.fields.getOrElse(Set.empty))
@@ -49,7 +50,7 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
             rSubscriptions += subData.pushChannel.path -> InternalSubscription(newSubscriber, subData.r)
             context.watch(newSubscriber) //TODO handle death
             context.watch(subData.pushChannel) //TODO handle death
-            sender() ! SubscriptionDone
+            actualSender ! SubscriptionDone
           case _ =>
             val reason = s"Gorilla Center replied with unexpected response to new subscription request: $subData"
             failedToRegisterNewSubscription(subData.r, subData.pushChannel, reason)
@@ -77,7 +78,9 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
           roomSub.subscriptionActor ! Unsubscribe
           roomSubscriptions -= subData.pushChannel.path
       }
-    case Terminated(actor) => ??? //TODO Handle death of subscribers
+    case Terminated(actor) =>
+      //TODO Handle death of subscribers
+      log.info("Actor Terminated" + actor)
   }
 }
 
