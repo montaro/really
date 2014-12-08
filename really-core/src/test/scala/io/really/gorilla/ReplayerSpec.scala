@@ -4,8 +4,13 @@
 
 package io.really.gorilla
 
-import akka.actor.Props
+import akka.actor.{ ActorRef, Props }
 import akka.contrib.pattern.DistributedPubSubMediator.{ Subscribe, Publish }
+import akka.persistence.{ Update => PersistenceUpdate }
+import io.really.fixture.PersistentModelStoreFixture
+import io.really.model.Model
+import io.really.model.persistent.ModelRegistry.{ ModelResult, CollectionActorMessage }
+import io.really.model.persistent.{ PersistentModelStore }
 import akka.testkit.{ EventFilter, TestProbe, TestActorRef }
 import com.typesafe.config.ConfigFactory
 import _root_.io.really.Request.{ Update, Create }
@@ -15,6 +20,7 @@ import _root_.io.really.protocol.SubscriptionFailure
 import _root_.io.really.gorilla.SubscriptionManager.Unsubscribe
 import _root_.io.really.model.CollectionActor.Event.{ Updated, Created }
 import _root_.io.really.protocol.{ UpdateBody, UpdateCommand, UpdateOp }
+import io.really.Request.Update
 import io.really._
 import play.api.libs.json.{ JsString, Json }
 import scala.slick.driver.H2Driver.simple._
@@ -31,10 +37,26 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpec(config) {
   implicit val session = globals.session
   val events: TableQuery[EventLogs] = TableQuery[EventLogs]
 
+  var modelRouterRef: ActorRef = _
+  var modelPersistentActor: ActorRef = _
+  val models: List[Model] = List(BaseActorSpec.userModel, BaseActorSpec.carModel,
+    BaseActorSpec.companyModel, BaseActorSpec.authorModel, BaseActorSpec.postModel)
+
   override def beforeAll() = {
+    super.beforeAll()
     events.ddl.drop
     events.ddl.create
-    super.beforeAll()
+
+    modelRouterRef = globals.modelRegistry
+    modelPersistentActor = globals.persistentModelStore
+
+    modelPersistentActor ! PersistentModelStore.UpdateModels(models)
+    modelPersistentActor ! PersistentModelStoreFixture.GetState
+    expectMsg(models)
+
+    modelRouterRef ! PersistenceUpdate(await = true)
+    modelRouterRef ! CollectionActorMessage.GetModel(BaseActorSpec.userModel.r, self)
+    expectMsg(ModelResult.ModelObject(BaseActorSpec.userModel, List.empty))
   }
 
   override def afterAll() = {

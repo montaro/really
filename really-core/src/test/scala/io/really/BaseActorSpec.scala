@@ -13,8 +13,7 @@ import org.joda.time.DateTime
 import org.scalatest._
 
 abstract class BaseActorSpec(conf: ReallyConfig = TestConf.getConfig()) extends TestKit(TestActorSystem(
-  "TestActorSystem",
-  conf
+  "TestActorSystem", conf
 )) with ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
 
   import BaseActorSpec._
