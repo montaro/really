@@ -8,19 +8,11 @@ import akka.actor.ActorLogging
 import akka.persistence.PersistentView
 import _root_.io.really.WrappedSubscriptionRequest._
 
-<<<<<<< HEAD
 class RequestRouter(globals: ReallyGlobals, persistId: String) extends PersistentView with ActorLogging {
   import RequestRouter._
 
   override def persistenceId: String = persistId
-=======
-class RequestRouter(globals: ReallyGlobals) extends PersistentView with ActorLogging {
 
-  import RequestRouter._
-
-  override def persistenceId: String = "model-registry-persistent"
-
->>>>>>> dd361ae... REALLY-64 Implemented the SubscribeRequestAggregator
   override def viewId: String = "request-router-view"
 
   private var models: List[R] = List.empty

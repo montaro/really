@@ -205,14 +205,10 @@ package io {
 
     }
 
-    /*
-<<<<<<< HEAD
-   * Represent implicit format for AuthProvider
-   */
-=======
-* Represent implicit format for AuthProvider
-*/
->>>>>>> dd361ae... REALLY-64 Implemented the SubscribeRequestAggregator
+    /**
+     * Represent implicit format for AuthProvider
+     */
+
     implicit object AuthProviderFmt extends Format[AuthProvider] {
 
       import AuthProvider._

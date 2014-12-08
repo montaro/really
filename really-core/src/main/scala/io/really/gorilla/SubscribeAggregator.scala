@@ -22,8 +22,7 @@ class SubscribeAggregator(subscriptionManager: ActorRef) extends Actor with Aggr
 
   expectOnce {
     case WrappedSubscribe(subscribeRequest, pushChannel) => new SubscribeAggregatorImpl(
-      subscribeRequest.ctx,
-      sender(), subscribeRequest.body, pushChannel
+      subscribeRequest.ctx, sender(), subscribeRequest.body, pushChannel
     )
     case msg =>
       log.error(s"Subscribe Aggregator got an unexpected response: $msg and going to die")
@@ -52,12 +51,15 @@ class SubscribeAggregator(subscriptionManager: ActorRef) extends Actor with Aggr
     def subscribeOnR(rSub: RSubscription) = {
       subscriptionManager ! SubscribeOnR(rSub)
       expectOnce {
-        case SubscriptionDone => results += rSub.r
+        case SubscriptionDone =>
+          results += rSub.r
+          collectSubscriptions()
         case sf: SubscriptionFailure =>
       }
     }
 
     def collectSubscriptions(force: Boolean = false) {
+      println("\n----------Collecting")
       if (results.size == body.subscriptions.size || force) {
         requestDelegate ! SubscribeAggregator.Subscribed(results.toSet)
         context.stop(self)
