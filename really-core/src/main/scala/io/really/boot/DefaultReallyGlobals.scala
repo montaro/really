@@ -113,6 +113,9 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
   def objectSubscriberProps(rSubscription: RSubscription): Props =
     Props(classOf[ObjectSubscriber], rSubscription, this)
 
+  def replayerProps(rSubscription: RSubscription, objectSubscriber: ActorRef, maxMarker: Option[Revision]): Props =
+    Props(classOf[Replayer], this, objectSubscriber, rSubscription, maxMarker, session)
+
   override def shutdown(): Unit = {
     actorSystem.shutdown()
     actorSystem.awaitTermination()

@@ -32,7 +32,7 @@ class Replayer(globals: ReallyGlobals, objectSubscriber: ActorRef, rSubscription
   private[gorilla] val r = rSubscription.r
 
   context.watch(objectSubscriber)
-  //TODO Watch Gorilla to notify the ObjectSubscriber that the subscription failedin case of Gorilla's termination
+  //TODO Watch Gorilla to notify the ObjectSubscriber that the subscription failed in case of Gorilla's termination
 
   maxMarker.map {
     max: Revision =>
@@ -201,4 +201,5 @@ object Replayer {
   }
 
   case object EndOfEventsLog
+
 }

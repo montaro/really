@@ -49,6 +49,8 @@ package io {
 
       def objectSubscriberProps(rSubscription: RSubscription): Props
 
+      def replayerProps(rSubscription: RSubscription, objectSubscriber: ActorRef, maxMarker: Option[Revision]): Props
+
       def receptionistProps: Props
 
       def modelRegistryProps: Props

@@ -54,11 +54,11 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
       val objectSubscriber = context.actorOf(globals.objectSubscriberProps(rSub))
       maxMarkers.get(r) match {
         case Some(rev) =>
-          val replayer = context.actorOf(Props(new Replayer(globals, objectSubscriber, rSub, Some(rev))))
+          val replayer = context.actorOf(globals.replayerProps(rSub, objectSubscriber, Some(rev)))
           globals.mediator ! Subscribe(rSub.r.toString, replayer)
           objectSubscriber ! ReplayerSubscribed(replayer)
         case None =>
-          val replayer = context.actorOf(Props(new Replayer(globals, objectSubscriber, rSub, None)))
+          val replayer = context.actorOf(globals.replayerProps(rSub, objectSubscriber, None))
           globals.mediator ! Subscribe(rSub.r.toString, replayer)
           objectSubscriber ! ReplayerSubscribed(replayer)
       }

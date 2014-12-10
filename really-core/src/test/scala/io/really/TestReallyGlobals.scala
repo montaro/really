@@ -74,6 +74,9 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   override def objectSubscriberProps(rSubscription: RSubscription): Props =
     Props(classOf[ObjectSubscriber], rSubscription, this)
 
+  def replayerProps(rSubscription: RSubscription, objectSubscriber: ActorRef, maxMarker: Option[Revision]): Props =
+    Props(classOf[Replayer], this, objectSubscriber, rSubscription, maxMarker, session)
+
   override def boot() = {
     implicit val ec = actorSystem.dispatcher
     val driver = new MongoDriver
