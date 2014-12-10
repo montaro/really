@@ -82,7 +82,7 @@ class Replayer(globals: ReallyGlobals, objectSubscriber: ActorRef, rSubscription
   }
 
   def shutdown(reason: String) = {
-    log.debug(s"$replayerId actor is going to die because of: $reason")
+    log.warning(s"$replayerId actor is going to die because of: $reason")
     globals.mediator ! Unsubscribe(r.toString, self)
     context.stop(self)
   }

@@ -40,6 +40,7 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
     case SubscribeOnR(subData) =>
       rSubscriptions.get(subData.pushChannel.path).map {
         rSub =>
+          println("\nManager got Update")
           rSub.subscriptionActor ! UpdateSubscriptionFields(subData.fields.getOrElse(Set.empty))
       }.getOrElse {
         implicit val timeout = Timeout(globals.config.GorillaConfig.waitForGorillaCenter)
@@ -78,7 +79,9 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
           roomSub.subscriptionActor ! Unsubscribe
           roomSubscriptions -= subData.pushChannel.path
       }
-    case Terminated(actor) => ??? //TODO Handle death of subscribers
+    case Terminated(actor) =>
+      //TODO Handle death of subscribers
+      log.info("Actor Terminated" + actor)
   }
 }
 

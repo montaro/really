@@ -4,7 +4,7 @@
 
 package io.really.gorilla
 
-import akka.actor.{ Stash, ActorLogging, Actor }
+import akka.actor.{ Terminated, Stash, ActorLogging, Actor }
 import akka.util.Timeout
 import io.really.gorilla.GorillaEventCenter.ReplayerSubscribed
 import io.really.gorilla.SubscriptionManager.{ UpdateSubscriptionFields, Unsubscribe }
@@ -36,7 +36,7 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
   }
 
   def subscriptionFailed(errorCode: Int, reason: String) = {
-    log.error(s"$logTag is going to die since the subscription failed because of: $reason")
+    log.error(s"$logTag is going to die since the subscription failed because of: $reason\n error code: $errorCode")
     rSubscription.requestDelegate ! SubscriptionFailureWrites.writes(SubscriptionFailure(r, errorCode, reason))
     context.stop(self)
   }
@@ -49,6 +49,8 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
     case SubscriptionFailure(r, errorCode, reason) =>
       subscriptionFailed(errorCode, "Internal Server Error")
     //TODO handle Replayer death
+    case Terminated(actor) =>
+      log.info("Actor Terminated" + actor)
   }
 
   def receive: Receive = commonHandler orElse starterReceive
@@ -78,7 +80,7 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
     case evt @ ModelResult.ModelObject(m, _) =>
       log.debug(s"$logTag found the model for r: $r")
       unstashAll()
-      context.become(withModel(m))
+      context.become(withModel(m) orElse commonHandler)
     case ModelFetchError(r, reason) =>
       subscriptionFailed(500, s"$logTag couldn't fetch the model for r: $r because of: $reason")
     case _ =>
@@ -107,14 +109,13 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
         subscriptionFailed(502, "Model Version inconsistency")
       }
     case entry: GorillaLogDeletedEntry =>
-      Deleted.toJson(entry.userInfo.userR, r)
-      rSubscription.pushChannel ! entry
+      rSubscription.pushChannel ! Deleted.toJson(entry.userInfo.userR, r)
       context.stop(self)
     case UpdateSubscriptionFields(newFields) =>
       fields = fields union Set(newFields.toSeq: _*)
     case ModelUpdatedEvent(_, newModel) =>
       log.debug(s"$logTag received a ModelUpdated message for: $r")
-      context.become(withModel(newModel))
+      context.become(withModel(newModel) orElse commonHandler)
     case ModelDeletedEvent(deletedR) =>
       if (deletedR == r) {
         rSubscription.requestDelegate ! SubscriptionFailure(r, 501, s"received a DeletedModel message for: $r")

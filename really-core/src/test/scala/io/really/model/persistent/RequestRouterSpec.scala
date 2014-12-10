@@ -20,7 +20,7 @@ class RequestRouterSpec extends BaseActorSpec {
     Map("name" -> f1, "age" -> f2)
   }
 
-  override val globals = new RequestRouterGlobals(config, system)
+  override lazy val globals = new RequestRouterGlobals(config, system)
 
   val accountsR = R / "profiles"
   val accountsModel = Model(accountsR, collMeta, fields,

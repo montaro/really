@@ -3,7 +3,7 @@
  */
 package io.really.gorilla
 
-import akka.actor.{ ActorRef, Props, ActorLogging, Actor }
+import akka.actor._
 import akka.contrib.pattern.DistributedPubSubMediator.Subscribe
 import akka.contrib.pattern.ShardRegion
 import io.really.gorilla.SubscriptionManager.ObjectSubscribed
@@ -23,6 +23,7 @@ import scala.slick.jdbc.meta.MTable
  * @param globals
  */
 class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) extends Actor with ActorLogging {
+
   import GorillaEventCenter._
 
   val bucketID: BucketID = self.path.name
@@ -50,7 +51,7 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
 
   def handleSubscriptions: Receive = {
     case NewSubscription(rSub) =>
-      val objectSubscriber = context.actorOf(Props(new ObjectSubscriber(rSub, globals)))
+      val objectSubscriber = context.actorOf(globals.objectSubscriberProps(rSub))
       maxMarkers.get(r) match {
         case Some(rev) =>
           val replayer = context.actorOf(Props(new Replayer(globals, objectSubscriber, rSub, Some(rev))))
