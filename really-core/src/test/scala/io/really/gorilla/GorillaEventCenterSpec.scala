@@ -14,6 +14,7 @@ import play.api.libs.json.{ JsString, Json }
 import scala.slick.driver.H2Driver.simple._
 
 class GorillaEventCenterSpec extends BaseActorSpec {
+
   import EventLogs._
 
   implicit val session = globals.session

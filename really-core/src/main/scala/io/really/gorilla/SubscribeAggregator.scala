@@ -12,20 +12,19 @@ import io.really.WrappedSubscriptionRequest.WrappedSubscribe
 import io.really.gorilla.SubscriptionManager.{ SubscriptionDone, SubscribeOnR }
 import io.really.protocol.{ SubscriptionFailure, SubscriptionBody }
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.duration._
+import io.really.ReallyGlobals
 
-case object TimedOut
-
-class SubscribeAggregator(subscriptionManager: ActorRef) extends Actor with Aggregator with ActorLogging {
+class SubscribeAggregator(subscriptionManager: ActorRef, globals: ReallyGlobals) extends Actor with Aggregator with ActorLogging {
 
   import context._
+  import SubscribeAggregator._
 
   expectOnce {
-    case WrappedSubscribe(subscribeRequest, pushChannel) => new SubscribeAggregatorImpl(
-      subscribeRequest.ctx, sender(), subscribeRequest.body, pushChannel
-    )
+    case WrappedSubscribe(subscribeRequest, pushChannel) =>
+      new SubscribeAggregatorImpl(subscribeRequest.ctx, sender(), subscribeRequest.body, pushChannel)
     case msg =>
       log.error(s"Subscribe Aggregator got an unexpected response: $msg and going to die")
+      sender() ! UnsupportedResponse
       context.stop(self)
   }
 
@@ -33,6 +32,7 @@ class SubscribeAggregator(subscriptionManager: ActorRef) extends Actor with Aggr
       pushChannel: ActorRef) {
 
     val results = ArrayBuffer.empty[R]
+    var processedCount = 0
 
     if (body.subscriptions.size > 0) {
       body.subscriptions.foreach {
@@ -43,9 +43,12 @@ class SubscribeAggregator(subscriptionManager: ActorRef) extends Actor with Aggr
       collectSubscriptions()
     }
 
-    context.system.scheduler.scheduleOnce(3.second, self, TimedOut) //TODO Needs to be a configuration
+    context.system.scheduler.scheduleOnce(globals.config.GorillaConfig.waitForSubscriptionsAggregation, self, TimedOut)
     expect {
-      case TimedOut => collectSubscriptions(force = true)
+      case TimedOut =>
+        log.warning(s"Subscribe Aggregator timed out while waiting the subscriptions to be fulfilled for requester:" +
+          s" $requestDelegate")
+        collectSubscriptions(force = true)
     }
 
     def subscribeOnR(rSub: RSubscription) = {
@@ -53,14 +56,16 @@ class SubscribeAggregator(subscriptionManager: ActorRef) extends Actor with Aggr
       expectOnce {
         case SubscriptionDone =>
           results += rSub.r
+          processedCount += 1
           collectSubscriptions()
         case sf: SubscriptionFailure =>
+          processedCount += 1
+          collectSubscriptions()
       }
     }
 
     def collectSubscriptions(force: Boolean = false) {
-      println("\n----------Collecting")
-      if (results.size == body.subscriptions.size || force) {
+      if (processedCount == body.subscriptions.size || force) {
         requestDelegate ! SubscribeAggregator.Subscribed(results.toSet)
         context.stop(self)
       }
@@ -72,5 +77,9 @@ class SubscribeAggregator(subscriptionManager: ActorRef) extends Actor with Aggr
 object SubscribeAggregator {
 
   case class Subscribed(rs: Set[R])
+
+  case object TimedOut
+
+  case object UnsupportedResponse
 
 }

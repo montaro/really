@@ -9,11 +9,10 @@ import akka.contrib.pattern.DistributedPubSubMediator.{ Subscribe, Publish }
 import akka.persistence.{ Update => PersistenceUpdate }
 import io.really.fixture.PersistentModelStoreFixture
 import io.really.model.Model
-import io.really.model.persistent.ModelRegistry.{ ModelResult, CollectionActorMessage }
 import io.really.model.persistent.{ PersistentModelStore }
 import akka.testkit.{ EventFilter, TestProbe, TestActorRef }
 import com.typesafe.config.ConfigFactory
-import _root_.io.really.Request.{ Update, Create }
+import _root_.io.really.Request.Create
 import _root_.io.really.Result.{ UpdateResult, CreateResult }
 import _root_.io.really.gorilla.Replayer.SnapshotResult.SnapshotObject
 import _root_.io.really.protocol.SubscriptionFailure
@@ -55,8 +54,6 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpec(config) {
     expectMsg(models)
 
     modelRouterRef ! PersistenceUpdate(await = true)
-    modelRouterRef ! CollectionActorMessage.GetModel(BaseActorSpec.userModel.r, self)
-    expectMsg(ModelResult.ModelObject(BaseActorSpec.userModel, List.empty))
   }
 
   override def afterAll() = {

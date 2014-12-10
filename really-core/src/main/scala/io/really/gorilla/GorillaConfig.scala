@@ -18,6 +18,10 @@ trait GorillaConfig {
     val waitForGorillaCenter = gorilla.getDuration("wait-for-gorilla_center", TimeUnit.MILLISECONDS).milliseconds
     val advancedRevisionLimit = gorilla.getLong("advanced-revision-diff")
     val waitForModel = gorilla.getDuration("wait-for-model", TimeUnit.MILLISECONDS).milliseconds
+    val waitForSubscriptionsAggregation = gorilla.getDuration(
+      "wait-for-subscriptions-aggregation",
+      TimeUnit.MILLISECONDS
+    ).milliseconds
     //TODO    val idleTimeout = gorilla.getDuration("idle-timeout", TimeUnit.MILLISECONDS).milliseconds
   }
 

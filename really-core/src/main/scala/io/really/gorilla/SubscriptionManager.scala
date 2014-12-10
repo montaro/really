@@ -26,7 +26,7 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
   var rSubscriptions: Map[SubscriberIdentifier, InternalSubscription] = Map.empty
   var roomSubscriptions: Map[SubscriberIdentifier, InternalSubscription] = Map.empty
 
-  def failedToRegisterNewSubscription(r: R, newSubscriber: ActorRef, reason: String) = {
+  def failedToRegisterNewSubscription(originalSender: ActorRef, r: R, newSubscriber: ActorRef, reason: String) = {
     newSubscriber ! SubscriptionFailure(r, 500, reason)
     sender() ! SubscriptionFailure(r, 500, reason)
     log.error(reason)
@@ -34,7 +34,7 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
 
   def receive = {
     case request: WrappedSubscribe =>
-      context.actorOf(Props(new SubscribeAggregator(self))) forward request
+      context.actorOf(Props(new SubscribeAggregator(self, globals))) forward request
     case Request.Unsubscribe =>
       ???
     case SubscribeOnR(subData) =>
@@ -43,25 +43,26 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
           rSub.subscriptionActor ! UpdateSubscriptionFields(subData.fields.getOrElse(Set.empty))
       }.getOrElse {
         implicit val timeout = Timeout(globals.config.GorillaConfig.waitForGorillaCenter)
+        val originalSender = sender()
         val result = globals.gorillaEventCenter ? NewSubscription(subData)
         result.onSuccess {
           case ObjectSubscribed(newSubscriber) =>
             rSubscriptions += subData.pushChannel.path -> InternalSubscription(newSubscriber, subData.r)
             context.watch(newSubscriber) //TODO handle death
             context.watch(subData.pushChannel) //TODO handle death
-            sender() ! SubscriptionDone
+            originalSender ! SubscriptionDone
           case _ =>
             val reason = s"Gorilla Center replied with unexpected response to new subscription request: $subData"
-            failedToRegisterNewSubscription(subData.r, subData.pushChannel, reason)
+            failedToRegisterNewSubscription(originalSender, subData.r, subData.pushChannel, reason)
         }
         result.onFailure {
           case e: AskTimeoutException =>
             val reason = s"SubscriptionManager timed out waiting for the Gorilla center response for" +
               s" subscription $subData"
-            failedToRegisterNewSubscription(subData.r, subData.pushChannel, reason)
+            failedToRegisterNewSubscription(originalSender, subData.r, subData.pushChannel, reason)
           case NonFatal(e) =>
             val reason = s"Unexpected error while asking the Gorilla Center to establish a new subscription: $subData"
-            failedToRegisterNewSubscription(subData.r, subData.pushChannel, reason)
+            failedToRegisterNewSubscription(originalSender, subData.r, subData.pushChannel, reason)
         }
       }
     case SubscribeOnRoom(subData) => ??? //TODO Handle Room subscriptions
