@@ -46,7 +46,7 @@ class ObjectSubscriberSpec extends BaseActorSpecWithMongoDB {
     expectMsg(ModelResult.ModelObject(BaseActorSpec.userModel, List.empty))
   }
 
-  "Object Subscription" should "Initialized Successfully" in {
+  "Object Subscriber" should "Initialized Successfully" in {
     val rSub1 = RSubscription(ctx, r, Some(Set("name")), rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = TestActorRef[ObjectSubscriber](globals.objectSubscriberProps(rSub1))
     objectSubscriberActor.underlyingActor.fields shouldEqual Set("name")

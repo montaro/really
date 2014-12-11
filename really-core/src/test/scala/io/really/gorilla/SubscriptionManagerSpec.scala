@@ -27,6 +27,7 @@ class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
   }
 
   val caller = TestProbe()
+  val deathPrope = TestProbe()
   val requestDelegate = TestProbe()
   val pushChannel = TestProbe()
   val rev: Revision = 1L
@@ -47,7 +48,7 @@ class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
     expectMsg(ModelResult.ModelObject(BaseActorSpec.userModel, List.empty))
   }
 
-  "Object Subscription" should "handle new subscription, create an ObjectSubscriptionActor and update the internal" +
+  "Subscription Manager" should "handle new subscription, create an ObjectSubscriptionActor and update the internal" +
     " state" in {
       val subscriptionManger = TestActorRef[SubscriptionManager](globals.subscriptionManagerProps)
       subscriptionManger.underlyingActor.rSubscriptions.isEmpty shouldBe true
@@ -82,9 +83,14 @@ class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
     subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub), caller.ref)
     caller.expectMsg(SubscriptionManager.SubscriptionDone)
     subscriptionManger.underlyingActor.rSubscriptions.isEmpty shouldBe false
+    subscriptionManger.underlyingActor.rSubscriptions.size shouldBe 1
+    val subscriptionActor = subscriptionManger.underlyingActor.rSubscriptions.toList(0)._2.subscriptionActor
+    deathPrope.watch(subscriptionActor)
     subscriptionManger.tell(SubscriptionManager.UnsubscribeFromR(rSub), caller.ref)
     caller.expectNoMsg()
+    deathPrope.expectTerminated(subscriptionActor)
     subscriptionManger.underlyingActor.rSubscriptions.isEmpty shouldBe true
+
   }
 
   it should "handle Update subscription fields" in {
