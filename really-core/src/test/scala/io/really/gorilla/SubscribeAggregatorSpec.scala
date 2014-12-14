@@ -96,15 +96,15 @@ class SubscribeAggregatorSpec(config: ReallyConfig) extends BaseActorSpec(config
     delegate.expectMsg(Subscribed(Set.empty))
 
     //TODO
-    //    val warningFilter: EventFilter = EventFilter.warning(
-    //      message = s"Subscribe Aggregator timed out while waiting the subscriptions to be fulfilled" +
-    //      s" for requester: $delegate",
-    //      occurrences = 1
-    //    )
-    //    warningFilter.awaitDone(1.minute)
-    //    warningFilter.intercept {
-    //      aggregator.tell(WrappedSubscribe(Subscribe(ctx, body), pushChannel.ref), delegate.ref)
-    //    }
+    val warningFilter: EventFilter = EventFilter.warning(
+      message = s"Subscribe Aggregator timed out while waiting the subscriptions to be fulfilled" +
+      s" for requester: $delegate",
+      occurrences = 1
+    )
+    warningFilter.awaitDone(1.minute)
+    warningFilter.intercept {
+      aggregator.tell(WrappedSubscribe(Subscribe(ctx, body), pushChannel.ref), delegate.ref)
+    }
 
   }
 

@@ -4,7 +4,7 @@
 
 package io.really.gorilla
 
-import akka.actor.{ Actor, ActorRef, Props }
+import akka.actor.{ ActorRef, Props }
 import akka.testkit.{ TestProbe, TestActorRef }
 import akka.persistence.{ Update => PersistenceUpdate }
 import io.really._
@@ -22,12 +22,12 @@ class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
     override def objectSubscriberProps(rSubscription: RSubscription): Props =
       Props(classOf[TestObjectSubscriber], rSubscription, this)
 
-    override def replayerProps(rSubscription: RSubscription, objectSubscriber: ActorRef, maxMarker: Option[Revision]): Props =
-      Props(classOf[TestReplayer])
+    override def replayerProps(rSubscription: RSubscription, objectSubscriber: ActorRef,
+      maxMarker: Option[Revision]): Props = Props.empty
   }
 
   val caller = TestProbe()
-  val deathPrope = TestProbe()
+  val deathProbe = TestProbe()
   val requestDelegate = TestProbe()
   val pushChannel = TestProbe()
   val rev: Revision = 1L
@@ -48,69 +48,66 @@ class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
     expectMsg(ModelResult.ModelObject(BaseActorSpec.userModel, List.empty))
   }
 
-  "Subscription Manager" should "handle new subscription, create an ObjectSubscriptionActor and update the internal" +
+  "Subscription Manager" should "handle SubscribeOnR, create an ObjectSubscriptionActor and update the internal" +
     " state" in {
       val subscriptionManger = TestActorRef[SubscriptionManager](globals.subscriptionManagerProps)
-      subscriptionManger.underlyingActor.rSubscriptions.isEmpty shouldBe true
+      val subs = subscriptionManger.underlyingActor.rSubscriptions
+      subs.isEmpty shouldBe true
       subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub), caller.ref)
       caller.expectMsg(SubscriptionManager.SubscriptionDone)
-      subscriptionManger.underlyingActor.rSubscriptions.isEmpty shouldBe false
-      val internalSub = subscriptionManger.underlyingActor.rSubscriptions.get(rSub.pushChannel.path).map {
-        rsub =>
-          rsub.r shouldEqual rSub.r
-          rsub.subscriptionActor.tell(GetFieldList, caller.ref)
-          val msg = caller.expectMsgType[scala.collection.mutable.Set[FieldKey]]
-          msg shouldEqual Set("name")
-      }
+      subs.size shouldBe 1
+      val expectedRSub = subs.get(rSub.pushChannel.path).get
+      expectedRSub.r shouldEqual rSub.r
+      expectedRSub.objectSubscriber.tell(GetFieldList, caller.ref)
+      val msg = caller.expectMsgType[Set[FieldKey]]
+      msg shouldEqual Set("name")
     }
 
-  it should "dosen't add same caller twice to subscriptionList" in {
+  it should "doesn't add same caller twice to subscriptionList" in {
     val subscriptionManger = TestActorRef[SubscriptionManager](globals.subscriptionManagerProps)
-    subscriptionManger.underlyingActor.rSubscriptions.isEmpty shouldBe true
+    val subs = subscriptionManger.underlyingActor.rSubscriptions
+    subs.isEmpty shouldBe true
     subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub), caller.ref)
     caller.expectMsg(SubscriptionManager.SubscriptionDone)
-    val rcount = subscriptionManger.underlyingActor.rSubscriptions.size
-    rcount shouldEqual 1
+    val rCount = subs.size
+    rCount shouldEqual 1
     subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub), caller.ref)
-    caller.expectNoMsg()
-    subscriptionManger.underlyingActor.rSubscriptions.size.shouldEqual(rcount)
-    rcount shouldEqual 1
+    //    caller.expectNoMsg() //TODO Caller should be Acked
+    subs.size.shouldEqual(rCount)
   }
 
-  it should "handle Unsubscribe, send it to the ObjectSubscriptionActor and remove it from the internal state" in {
+  it should "handle UnsubscribeOnR, send it to the ObjectSubscriptionActor and remove it from the internal state" in {
     val subscriptionManger = TestActorRef[SubscriptionManager](globals.subscriptionManagerProps)
-    subscriptionManger.underlyingActor.rSubscriptions.isEmpty shouldBe true
+    val subs = subscriptionManger.underlyingActor.rSubscriptions
+    subs.isEmpty shouldBe true
     subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub), caller.ref)
     caller.expectMsg(SubscriptionManager.SubscriptionDone)
     subscriptionManger.underlyingActor.rSubscriptions.isEmpty shouldBe false
     subscriptionManger.underlyingActor.rSubscriptions.size shouldBe 1
-    val subscriptionActor = subscriptionManger.underlyingActor.rSubscriptions.toList(0)._2.subscriptionActor
-    deathPrope.watch(subscriptionActor)
+    val subscriptionActor = subscriptionManger.underlyingActor.rSubscriptions.toList(0)._2.objectSubscriber
+    deathProbe.watch(subscriptionActor)
     subscriptionManger.tell(SubscriptionManager.UnsubscribeFromR(rSub), caller.ref)
-    caller.expectNoMsg()
-    deathPrope.expectTerminated(subscriptionActor)
+    //    caller.expectNoMsg() //TODO Caller should be Acked
+    deathProbe.expectTerminated(subscriptionActor)
     subscriptionManger.underlyingActor.rSubscriptions.isEmpty shouldBe true
-
   }
 
   it should "handle Update subscription fields" in {
     val rSub1 = RSubscription(ctx, r, Some(Set("name")), rev, requestDelegate.ref, pushChannel.ref)
     val rSub2 = RSubscription(ctx, r, Some(Set("age", "name")), rev, requestDelegate.ref, pushChannel.ref)
     val subscriptionManger = TestActorRef[SubscriptionManager](globals.subscriptionManagerProps)
-    subscriptionManger.underlyingActor.rSubscriptions.isEmpty shouldBe true
+    val subs = subscriptionManger.underlyingActor.rSubscriptions
+    subs.isEmpty shouldBe true
     subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub1), caller.ref)
     caller.expectMsg(SubscriptionManager.SubscriptionDone)
-    val rcount = subscriptionManger.underlyingActor.rSubscriptions.size
     subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub2), caller.ref)
-    caller.expectNoMsg()
-    subscriptionManger.underlyingActor.rSubscriptions.size.shouldEqual(rcount)
-    val internalSub = subscriptionManger.underlyingActor.rSubscriptions.get(rSub1.pushChannel.path).map {
-      rsub =>
-        rsub.r shouldEqual rSub1.r
-        rsub.subscriptionActor.tell(GetFieldList, caller.ref)
-        val msg = caller.expectMsgType[scala.collection.mutable.Set[FieldKey]]
-        msg shouldEqual Set("name", "age")
-    }
+    //    caller.expectNoMsg() //TODO Caller should be Acked
+    subs.size.shouldEqual(1)
+    val expectedRSub = subs.get(rSub1.pushChannel.path).get
+    expectedRSub.r shouldEqual rSub1.r
+    expectedRSub.objectSubscriber.tell(GetFieldList, caller.ref)
+    val msg = caller.expectMsgType[Set[FieldKey]]
+    msg shouldEqual Set("name", "age")
   }
 }
 
@@ -132,8 +129,4 @@ class TestObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals)
     case GetFieldList =>
       sender() ! this.fields
   }
-}
-
-class TestReplayer extends Actor {
-  def receive: Receive = Actor.emptyBehavior
 }

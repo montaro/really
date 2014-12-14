@@ -4,10 +4,10 @@
 
 package io.really.gorilla
 
-import akka.actor.{ Terminated, Props, ActorSystem }
-import akka.testkit.{ TestProbe, TestActorRef }
+import akka.actor.{Terminated, Props, ActorSystem}
+import akka.testkit.{TestProbe, TestActorRef}
 import _root_.io.really._
-import _root_.io.really.gorilla.SubscriptionManager.{ UpdateSubscriptionFields, Unsubscribe }
+import _root_.io.really.gorilla.SubscriptionManager.{UpdateSubscriptionFields, Unsubscribe}
 import _root_.io.really.protocol.ProtocolFormats.PushMessageWrites.Deleted
 import _root_.io.really.gorilla.SubscribeAggregator.Subscribed
 import _root_.io.really.gorilla.GorillaEventCenter._
@@ -16,7 +16,7 @@ import _root_.io.really.model.Model
 import _root_.io.really.model.persistent.ModelRegistry.CollectionActorMessage
 import _root_.io.really.model.persistent.ModelRegistry.ModelResult
 import _root_.io.really.model.persistent.PersistentModelStore
-import akka.persistence.{ Update => PersistenceUpdate }
+import akka.persistence.{Update => PersistenceUpdate}
 
 import scala.slick.driver.H2Driver.simple._
 
@@ -50,31 +50,33 @@ class ObjectSubscriberSpec extends BaseActorSpecWithMongoDB {
     val rSub1 = RSubscription(ctx, r, Some(Set("name")), rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = TestActorRef[ObjectSubscriber](globals.objectSubscriberProps(rSub1))
     objectSubscriberActor.underlyingActor.fields shouldEqual Set("name")
+    //TODO Check for R
+    //TODO Check for logTag
+    //TODO Check for subscribing on emty lists
   }
 
-  it should "unsubscribe Successfully and self terminated" in {
+  it should "handle Unsubscribe successfully during starter receiver and self termination" in {
     val rSub1 = RSubscription(ctx, r, Some(Set("name")), rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = TestActorRef[ObjectSubscriber](globals.objectSubscriberProps(rSub1))
-    objectSubscriberActor ! Subscribed
+    deathPrope.watch(objectSubscriberActor)
     objectSubscriberActor.underlyingActor.fields shouldEqual Set("name")
     objectSubscriberActor.tell(SubscriptionManager.Unsubscribe, caller.ref)
     requestDelegate.expectMsg(SubscriptionManager.Unsubscribe)
-    deathPrope.watch(objectSubscriberActor)
     deathPrope.expectTerminated(objectSubscriberActor)
   }
 
-  it should "Update Internal field List Successfully" in {
+  it should "handle Unsubscribe during withModel and self termination" in {}
+
+  it should "update Internal field List Successfully" in {
     val rSub1 = RSubscription(ctx, r, Some(Set("name")), rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = TestActorRef[ObjectSubscriber](globals.objectSubscriberProps(rSub1))
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriberActor, rSub1, Some(rev))))
     objectSubscriberActor.tell(ReplayerSubscribed(replayer), caller.ref)
-    caller.expectNoMsg()
     objectSubscriberActor.tell(UpdateSubscriptionFields(Set("age")), caller.ref)
-    caller.expectNoMsg()
     objectSubscriberActor.underlyingActor.fields shouldEqual Set("name", "age")
   }
 
-  it should "pass updates to push channel actor" in {
+  it should "pass delete updates to push channel actor correctly and then terminates" in {
     val rSub1 = RSubscription(ctx, r, Some(Set("name")), rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = TestActorRef[ObjectSubscriber](globals.objectSubscriberProps(rSub1))
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriberActor, rSub1, Some(rev))))
@@ -86,4 +88,25 @@ class ObjectSubscriberSpec extends BaseActorSpecWithMongoDB {
     deathPrope.watch(objectSubscriberActor)
     deathPrope.expectTerminated(objectSubscriberActor)
   }
+
+  it should "for empty list subscription change the internal state from empty list to all model fields" in {}
+
+  it should "log a warning when receiving a create push update" in {}
+
+  it should "filter the hidden fields from the an empty list subscription and sent the rest of model fields" in {}
+
+  it should "filter the hidden fields from the the subscription list and sent the rest of the subscription list " in {}
+
+  it should "pass nothing if the model.executeOnGet evaluated to Terminated" in {}
+
+  it should "in case of subscription failure, log and acknowledge the delegate and then stop" in {}
+
+  it should "handle associated replayer termination" in {}
+
+  it should "handle ModelUpdated correctly" in {}
+
+  it should "handle ModelDeleted, send subscription failed and terminates" in {}
+
+  it should "handle if the pushed update model version is not equal to the state version" in {}
+
 }

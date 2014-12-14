@@ -10,9 +10,8 @@ import scala.collection.mutable.Map
 import _root_.io.really.model.FieldKey
 import akka.actor._
 import _root_.io.really.{ R, ReallyGlobals }
-import _root_.io.really.WrappedSubscriptionRequest.WrappedSubscribe
+import _root_.io.really.WrappedSubscriptionRequest.{ WrappedSubscribe, WrappedUnsubscribe }
 import akka.pattern.{ AskTimeoutException, ask }
-import io.really.Request
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.control.NonFatal
@@ -35,20 +34,21 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
   def receive = {
     case request: WrappedSubscribe =>
       context.actorOf(Props(new SubscribeAggregator(self, globals))) forward request
-    case Request.Unsubscribe =>
+    case request: WrappedUnsubscribe =>
       ???
     case SubscribeOnR(subData) =>
       rSubscriptions.get(subData.pushChannel.path).map {
         rSub =>
-          rSub.subscriptionActor ! UpdateSubscriptionFields(subData.fields.getOrElse(Set.empty))
+          rSub.objectSubscriber ! UpdateSubscriptionFields(subData.fields.getOrElse(Set.empty))
+        //TODO Ack the delegate
       }.getOrElse {
         implicit val timeout = Timeout(globals.config.GorillaConfig.waitForGorillaCenter)
         val originalSender = sender()
         val result = globals.gorillaEventCenter ? NewSubscription(subData)
         result.onSuccess {
-          case ObjectSubscribed(newSubscriber) =>
-            rSubscriptions += subData.pushChannel.path -> InternalSubscription(newSubscriber, subData.r)
-            context.watch(newSubscriber) //TODO handle death
+          case ObjectSubscribed(objectSubscriber) =>
+            rSubscriptions += subData.pushChannel.path -> InternalSubscription(objectSubscriber, subData.r)
+            context.watch(objectSubscriber) //TODO handle death
             context.watch(subData.pushChannel) //TODO handle death
             originalSender ! SubscriptionDone
           case _ =>
@@ -66,16 +66,16 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
         }
       }
     case SubscribeOnRoom(subData) => ??? //TODO Handle Room subscriptions
-    case UnsubscribeFromR(subData) =>
+    case UnsubscribeFromR(subData) => //TODO Ack the delegate
       rSubscriptions.get(subData.pushChannel.path).map {
         rSub =>
-          rSub.subscriptionActor ! Unsubscribe
+          rSub.objectSubscriber ! Unsubscribe
           rSubscriptions -= subData.pushChannel.path
       }
     case UnsubscribeFromRoom(subData) =>
       roomSubscriptions.get(subData.pushChannel.path).map {
         roomSub =>
-          roomSub.subscriptionActor ! Unsubscribe
+          roomSub.objectSubscriber ! Unsubscribe
           roomSubscriptions -= subData.pushChannel.path
       }
     case Terminated(actor) =>
@@ -86,7 +86,7 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
 
 object SubscriptionManager {
 
-  case class InternalSubscription(subscriptionActor: ActorRef, r: R)
+  case class InternalSubscription(objectSubscriber: ActorRef, r: R)
 
   case class SubscribeOnR(rSubscription: RSubscription)
 

@@ -75,7 +75,7 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
     Props(classOf[ObjectSubscriber], rSubscription, this)
 
   def replayerProps(rSubscription: RSubscription, objectSubscriber: ActorRef, maxMarker: Option[Revision]): Props =
-    Props(classOf[Replayer], this, objectSubscriber, rSubscription, maxMarker, session)
+    Props(classOf[Replayer], this, objectSubscriber, rSubscription, maxMarker)
 
   override def boot() = {
     implicit val ec = actorSystem.dispatcher

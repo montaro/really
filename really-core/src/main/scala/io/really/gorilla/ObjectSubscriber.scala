@@ -16,7 +16,6 @@ import io.really.model.persistent.ModelRegistry.ModelResult.ModelFetchError
 import io.really.protocol.FieldUpdatedOp
 import io.really.protocol.ProtocolFormats.PushMessageWrites.{ Updated, Deleted }
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.collection.mutable.Set
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 import akka.pattern.{ AskTimeoutException, ask, pipe }
@@ -48,14 +47,14 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
       context.stop(self)
     case SubscriptionFailure(r, errorCode, reason) =>
       subscriptionFailed(errorCode, "Internal Server Error")
-    //TODO handle Replayer death
     case Terminated(actor) =>
-      log.info("Actor Terminated" + actor)
+      subscriptionFailed(505, "Associated replayer stopped")
   }
 
   def receive: Receive = commonHandler orElse starterReceive
 
   def starterReceive: Receive = {
+    //TODO Set timeout for waiting the Replayer starting
     case ReplayerSubscribed(replayer) =>
       context.watch(replayer)
       implicit val timeout = Timeout(globals.config.GorillaConfig.waitForModel)
@@ -76,13 +75,15 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
 
   def waitingModel: Receive = {
     case ModelResult.ModelNotFound =>
-      subscriptionFailed(500, s"$logTag couldn't find the model for r: $r")
+      subscriptionFailed(503, s"$logTag couldn't find the model for r: $r")
     case evt @ ModelResult.ModelObject(m, _) =>
       log.debug(s"$logTag found the model for r: $r")
+      if (fields.isEmpty)
+        fields = evt.model.fields.keySet
       unstashAll()
       context.become(withModel(m) orElse commonHandler)
     case ModelFetchError(r, reason) =>
-      subscriptionFailed(500, s"$logTag couldn't fetch the model for r: $r because of: $reason")
+      subscriptionFailed(504, s"$logTag couldn't fetch the model for r: $r because of: $reason")
     case _ =>
       stash()
   }
@@ -94,10 +95,7 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
       if (entry.modelVersion == model.collectionMeta.version) {
         model.executeOnGet(rSubscription.ctx, entry.obj) match {
           case Left(plan) =>
-            val interestFields = fields match {
-              case fs if fs.isEmpty => model.fields.keySet -- plan.hidden
-              case fs => fs -- plan.hidden
-            }
+            val interestFields = fields -- plan.hidden
             val updatedFields = entry.ops.filter(op => interestFields.contains(op.key)).map {
               op =>
                 FieldUpdatedOp(op.key, op.op, Some(op.value), entry.userInfo.userR)
@@ -112,7 +110,11 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
       rSubscription.pushChannel ! Deleted.toJson(entry.userInfo.userR, r)
       context.stop(self)
     case UpdateSubscriptionFields(newFields) =>
-      fields = fields union Set(newFields.toSeq: _*)
+      if (newFields.isEmpty) {
+        fields = model.fields.keySet
+      } else {
+        fields = fields union Set(newFields.toSeq: _*)
+      }
     case ModelUpdatedEvent(_, newModel) =>
       log.debug(s"$logTag received a ModelUpdated message for: $r")
       context.become(withModel(newModel) orElse commonHandler)
