@@ -3,9 +3,10 @@
  */
 package io.really.gorilla
 
-import akka.actor.{ ActorLogging, Actor }
+import akka.actor._
+import akka.contrib.pattern.DistributedPubSubMediator.Subscribe
 import akka.contrib.pattern.ShardRegion
-import play.api.libs.json.{ Json }
+import io.really.gorilla.SubscriptionManager.ObjectSubscribed
 import io.really.model.{ Model, Helpers }
 import io.really._
 
@@ -22,6 +23,7 @@ import scala.slick.jdbc.meta.MTable
  * @param globals
  */
 class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) extends Actor with ActorLogging {
+
   import GorillaEventCenter._
 
   val bucketID: BucketID = self.path.name
@@ -30,11 +32,13 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
 
   private[this] val config = globals.config.EventLogStorage
 
-  def receive: Receive = handleEvent
+  private[this] var maxMarkers: Map[R, Revision] = Map.empty
+
+  def receive: Receive = handleEvent orElse handleSubscriptions
 
   def handleEvent: Receive = {
     case msg: PersistentEvent =>
-      sender ! persistEvent(msg)
+      sender() ! persistEvent(msg)
     //todo pass it to the pubsub
 
     case evt: StreamingEvent =>
@@ -45,15 +49,31 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
     //todo notify the replayers with model updates
   }
 
+  def handleSubscriptions: Receive = {
+    case NewSubscription(rSub) =>
+      val objectSubscriber = context.actorOf(globals.objectSubscriberProps(rSub))
+      maxMarkers.get(r) match {
+        case Some(rev) =>
+          val replayer = context.actorOf(globals.replayerProps(rSub, objectSubscriber, Some(rev)))
+          globals.mediator ! Subscribe(rSub.r.toString, replayer)
+          objectSubscriber ! ReplayerSubscribed(replayer)
+        case None =>
+          val replayer = context.actorOf(globals.replayerProps(rSub, objectSubscriber, None))
+          globals.mediator ! Subscribe(rSub.r.toString, replayer)
+          objectSubscriber ! ReplayerSubscribed(replayer)
+      }
+      sender() ! ObjectSubscribed(objectSubscriber)
+  }
+
   private def persistEvent(persistentEvent: PersistentEvent): GorillaLogResponse =
     persistentEvent match {
       case PersistentCreatedEvent(event) =>
-        events += EventLog("create", event.r.toString, event.modelVersion, Json.stringify(event.obj),
-          Json.stringify(UserInfo.fmt.writes(event.context.auth)), None)
+        events += EventLog("created", event.r, 1l, event.modelVersion, event.obj,
+          event.context.auth, None)
         EventStored
       case PersistentUpdatedEvent(event, obj) =>
-        events += EventLog("update", event.r.toString, event.modelVersion, Json.stringify(obj),
-          Json.stringify(UserInfo.fmt.writes(event.context.auth)), Some(Json.stringify(Json.toJson(event.ops))))
+        events += EventLog("updated", event.r, event.rev, event.modelVersion, obj,
+          event.context.auth, Some(event.ops))
         EventStored
       case _ => GorillaLogError.UnsupportedEvent
     }
@@ -76,6 +96,8 @@ object GorillaEventCenter {
       events.ddl.create
     }
 
+  case class ReplayerSubscribed(replayer: ActorRef)
+
 }
 
 class GorillaEventCenterSharding(config: ReallyConfig) {
@@ -89,17 +111,15 @@ class GorillaEventCenterSharding(config: ReallyConfig) {
    * ID is the BucketId
    */
   val idExtractor: ShardRegion.IdExtractor = {
-    case persistentEvent: PersistentEvent => Helpers.getBucketIDFromR(persistentEvent.event.r) -> persistentEvent
+    case req: RoutableToGorillaCenter => Helpers.getBucketIDFromR(req.r) -> req
     case modelEvent: ModelEvent => modelEvent.bucketID -> modelEvent
-    //todo handle streaming events
   }
 
   /**
    * Shard Resolver for Akka Sharding extension
    */
   val shardResolver: ShardRegion.ShardResolver = {
-    case persistentEvent: PersistentEvent => (Helpers.getBucketIDFromR(persistentEvent.event.r).hashCode % maxShards).toString
+    case req: RoutableToGorillaCenter => (Helpers.getBucketIDFromR(req.r).hashCode % maxShards).toString
     case modelEvent: ModelEvent => (modelEvent.bucketID.hashCode % maxShards).toString
-    //todo handle streaming events
   }
 }

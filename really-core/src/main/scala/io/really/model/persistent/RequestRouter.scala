@@ -6,6 +6,7 @@ package io.really.model.persistent
 import _root_.io.really._
 import akka.actor.ActorLogging
 import akka.persistence.PersistentView
+import _root_.io.really.WrappedSubscriptionRequest._
 
 class RequestRouter(globals: ReallyGlobals, persistId: String) extends PersistentView with ActorLogging {
 
@@ -41,15 +42,12 @@ class RequestRouter(globals: ReallyGlobals, persistId: String) extends Persisten
       globals.readHandler forward req
     case req: Request with RoutableToReadHandler =>
       sender ! RequestRouterResponse.RNotFound(req.r)
-    case req: Request with RoutableToSubscriptionManager with RoutableByR if validR(req.r) =>
-      globals.subscriptionManager forward req
-    case req: Request with RoutableToSubscriptionManager with RoutableByR =>
-      sender ! RequestRouterResponse.RNotFound(req.r)
-    case req: Request with RoutableToSubscriptionManager =>
+    case req: RoutableToSubscriptionManager =>
       globals.subscriptionManager forward req
     case req: Request =>
       sender ! RequestRouterResponse.UnsupportedCmd(req.getClass.getName)
   }
+
 }
 
 object RequestRouter {

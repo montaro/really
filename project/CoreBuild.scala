@@ -20,7 +20,7 @@ object CoreBuild {
       Akka.testKit,
       Akka.contrib,
       Akka.slf4j,
-//      Akka.cassandraPersistence,
+      Akka.sharedInMemJournal,
       logback,
       snakeyaml,
       json,

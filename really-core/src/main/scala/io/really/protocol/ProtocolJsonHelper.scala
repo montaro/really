@@ -56,13 +56,6 @@ object ProtocolFormats {
     }
 
     /*
-     * JSON Reads for [[io.really.Request.GetSubscription]] Request
-     */
-    object GetSubscription {
-      def read(ctx: RequestContext) = (rReads) map (r => Request.GetSubscription(ctx, r))
-    }
-
-    /*
      * JSON Reads for [[io.really.Request.Get]] Request
      */
     object Get {
@@ -76,6 +69,7 @@ object ProtocolFormats {
      */
     object Update {
       val bodyReads = (__ \ 'body).read[UpdateBody]
+
       def read(ctx: RequestContext) =
         (rObjectReads and revReads and bodyReads)((r, rev, body) => Request.Update(ctx, r, rev, body))
     }
@@ -111,7 +105,6 @@ object ProtocolFormats {
       case "get" => Get.read _
       case "read" => Read.read _
       case "update" => Update.read _
-      case "get-susbcription" => GetSubscription.read _
       case "subscribe" => Subscribe.read _
       case "unsubscribe" => Unsubscribe.read _
       case "delete" => Delete.read _
@@ -123,6 +116,7 @@ object ProtocolFormats {
    * Represent JSON Writes for Responses
    */
   object ResponseWrites {
+
     /*
      * Represent JSON Writes for Subscribe Response
      */
@@ -138,14 +132,6 @@ object ProtocolFormats {
       def writes(r: UnsubscribeResult): JsValue =
         Json.obj(Body -> Json.obj("unsubscriptions" -> r.unsubscriptions))
     }
-
-    /*
-     * Represent JSON Writes for [[io.really.Response.GetSubscription]] Response
-     */
-    implicit val getSubscriptionResultWrites = (
-      (__ \ R).write[R] and
-      (__ \ Body \ Fields).write[Set[String]]
-    )(unlift(GetSubscriptionResult.unapply))
 
     /*
      * Represent JSON Writes for [[io.really.Response.Get]] Response
@@ -199,8 +185,6 @@ object ProtocolFormats {
           Json.toJson(response)
         case response: UnsubscribeResult =>
           Json.toJson(response)
-        case response: GetSubscriptionResult =>
-          Json.toJson(response)
         case response: GetResult =>
           Json.toJson(response)
         case response: UpdateResult =>
@@ -233,12 +217,12 @@ object ProtocolFormats {
     /*
      * Represent Created Push Message
      */
+    //TODO
     object Created {
-      def toJson(subscriptionId: String, r: R, createdObj: JsObject) =
+      def toJson(r: R, createdObj: JsObject) =
         Json.obj(
           R -> r,
           Event -> "created",
-          Meta -> Json.obj("subscription" -> subscriptionId),
           Body -> createdObj
         )
     }
@@ -259,7 +243,7 @@ object ProtocolFormats {
      * Represent Updated Push Message
      */
     object Updated {
-      def toJson(r: R, rev: Int, ops: List[FieldUpdatedOp]) =
+      def toJson(r: R, rev: Revision, ops: List[FieldUpdatedOp]) =
         Json.obj(
           R -> r,
           Revision -> rev,
@@ -267,6 +251,7 @@ object ProtocolFormats {
           Body -> Json.toJson(ops)(FieldUpdatedOp.FieldUpdatedOpListWrites)
         )
     }
+
   }
 
 }

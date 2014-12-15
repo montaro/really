@@ -6,7 +6,8 @@ package io.really.gorilla
 import akka.actor.Props
 import akka.testkit.{ TestProbe, TestActorRef }
 import io.really.model.CollectionActor.Event.{ Updated, Created }
-import io.really.model.{ CollectionMetadata, Helpers }
+import _root_.io.really.model.{ CollectionMetadata, Helpers }
+
 import io.really._
 import _root_.io.really.protocol.{ UpdateOp, UpdateCommand }
 import play.api.libs.json.{ JsString, Json }
@@ -14,9 +15,23 @@ import scala.slick.driver.H2Driver.simple._
 
 class GorillaEventCenterSpec extends BaseActorSpec {
 
+  import EventLogs._
+
   implicit val session = globals.session
 
   val events: TableQuery[EventLogs] = TableQuery[EventLogs]
+
+  override def beforeAll() = {
+    events.ddl.drop
+    events.ddl.create
+    super.beforeAll()
+  }
+
+  override def afterAll() = {
+    events.ddl.drop
+    events.ddl.create
+    super.afterAll()
+  }
 
   "Gorilla Event Center" should "should have the correct BucketID and R" in {
     val r = R / 'users / 123 / 'posts / 122
@@ -36,10 +51,10 @@ class GorillaEventCenterSpec extends BaseActorSpec {
     globals.gorillaEventCenter.tell(PersistentCreatedEvent(event), probe.ref)
     probe.expectMsg(EventStored)
 
-    events.filter(_.r === r.toString) foreach {
+    events.filter(_.r === r) foreach {
       element =>
-        element shouldEqual EventLog("create", r.toString, 1l, Json.stringify(obj),
-          Json.stringify(Json.toJson(ctx.auth)), None)
+        element shouldEqual EventLog("created", r, 1l, 1l, obj,
+          ctx.auth, None)
     }
 
   }
@@ -53,10 +68,10 @@ class GorillaEventCenterSpec extends BaseActorSpec {
     globals.gorillaEventCenter.tell(PersistentUpdatedEvent(event, obj), probe.ref)
     probe.expectMsg(EventStored)
 
-    events.filter(_.r === r.toString) foreach {
+    events.filter(_.r === r) foreach {
       element =>
-        element shouldEqual EventLog("update", r.toString, 1l, Json.stringify(obj),
-          Json.stringify(Json.toJson(ctx.auth)), Some(Json.stringify(Json.toJson(ops))))
+        element shouldEqual EventLog("updated", r, 2l, 1l, obj,
+          ctx.auth, Some(ops))
     }
   }
 
@@ -87,6 +102,5 @@ class GorillaEventCenterSpec extends BaseActorSpec {
     probe.expectMsg(EventStored)
 
     events.filter(_.ModelVersion === 1l).length.run shouldBe 0
-
   }
 }

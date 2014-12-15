@@ -3,6 +3,7 @@
  */
 package io.really
 
+import _root_.io.really.model.FieldKey
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
@@ -11,7 +12,9 @@ package object protocol {
   /*
    * Represents request options on get request
    */
-  case class GetOpts(fields: Set[String] = Set.empty) //TODO change fields type
+  case class GetOpts(fields: Set[String] = Set.empty)
+
+  //TODO change fields type
   /*
    * Represent implicit JSON Format for GetOpts
    */
@@ -93,7 +96,7 @@ package object protocol {
   /*
    * Represents operation on update request
    */
-  case class UpdateOp(op: UpdateCommand, key: String, value: JsValue, opArgs: Option[JsObject] = None)
+  case class UpdateOp(op: UpdateCommand, key: FieldKey, value: JsValue, opArgs: Option[JsObject] = None)
 
   /*
    * Represent implicit JSON Format for UpdateOp
@@ -119,7 +122,9 @@ package object protocol {
   /*
    * Represents subscription operation for one object on subscribe request
    */
-  case class SubscriptionOp(r: R, rev: Int, fields: Set[String] = Set.empty) //TODO change fields type
+  case class SubscriptionOp(r: R, rev: Int, fields: Set[String] = Set.empty)
+
+  //TODO change fields type
 
   /*
    * Represent implicit JSON Format for SubscriptionOp
@@ -163,19 +168,6 @@ package object protocol {
    */
   object UnsubscriptionBody {
     implicit val fmt = Json.format[UnsubscriptionBody]
-  }
-
-  /*
-   * Represent subscription result
-   */
-  case class SubscriptionOpResult(r: R, fields: Set[String])
-
-  //TODO change fields type
-  /*
-   * Represent implicit JSON Format for subscription operation result
-   */
-  object SubscriptionOpResult {
-    implicit val fmt = Json.format[SubscriptionOpResult]
   }
 
   /*
@@ -236,12 +228,13 @@ package object protocol {
       def writes(l: List[FieldSnapshot]): JsValue =
         Json.toJson(l.map(f => f.key -> Json.obj("value" -> f.value)).toMap)
     }
+
   }
 
   /*
    * Represent update operation that has processed on specific field
    */
-  case class FieldUpdatedOp(key: String, op: UpdateCommand, opValue: Option[JsValue], opBy: R)
+  case class FieldUpdatedOp(key: FieldKey, op: UpdateCommand, opValue: Option[JsValue], opBy: R)
 
   /*
   * Represent implicit JSON Format for FieldSnapshot
@@ -267,6 +260,24 @@ package object protocol {
           "opValue" -> o.opValue,
           "opBy" -> o.opBy
         )).toMap)
+    }
+
+  }
+
+  case class SubscriptionFailure(r: R, errorCode: Int, message: String)
+
+  object SubscriptionFailure {
+
+    object SubscriptionFailureWrites extends Writes[SubscriptionFailure] {
+      def writes(sf: SubscriptionFailure): JsValue =
+        Json.obj(
+          "evt" -> "failed",
+          "r" -> sf.r,
+          "error" -> Json.obj(
+            "code" -> sf.errorCode,
+            "message" -> sf.message
+          )
+        )
     }
 
   }

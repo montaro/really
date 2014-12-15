@@ -26,7 +26,7 @@ import scala.util.Random
 
 class CollectionActorSpec extends BaseActorSpec {
 
-  override val globals = new CollectionTestReallyGlobals(config, system)
+  override lazy val globals = new CollectionTestReallyGlobals(config, system)
 
   case class UnsupportedCommand(r: R, cmd: String) extends RoutableToCollectionActor
 

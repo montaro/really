@@ -14,21 +14,16 @@ class ResponseWritesSpec extends FlatSpec with Matchers {
 
   val ctx = RequestContext(
     1,
-    UserInfo(AuthProvider.Anonymous, R("/_anonymous/1234567"), Application("reallyApp")),
-    None, RequestMetadata(None, DateTime.now, "localhost", RequestProtocol.WebSockets)
+    UserInfo(AuthProvider.Anonymous, R("/_anonymous/1234567"), Application("reallyApp")), RequestMetadata(
+      None,
+      DateTime.now, "localhost", RequestProtocol.WebSockets
+    )
   )
 
   "Subscribe writes" should "write subscribe response schema " in {
-    val request = Request.Subscribe(ctx, SubscriptionBody(
-      List(
-        SubscriptionOp(R("/users/12131231232/"), 2, Set("name", "age")),
-        SubscriptionOp(R("/users/121312787632/"), 2, Set.empty)
-      )
-    ))
-
     val response = SubscribeResult(Set(
-      SubscriptionOpResult(R("/users/12131231232/"), Set("name", "age")),
-      SubscriptionOpResult(R("/users/121312787632/"), Set.empty[String])
+      R("/users/12131231232/"),
+      R("/users/121312787632/")
     ))
 
     val obj = Json.toJson(response)
@@ -36,24 +31,18 @@ class ResponseWritesSpec extends FlatSpec with Matchers {
     assertResult(Json.obj(
       "body" -> Json.obj(
         "subscriptions" -> Set(
-          Json.obj("r" -> "/users/12131231232/", "fields" -> Set("name", "age")),
-          Json.obj("r" -> "/users/121312787632/", "fields" -> Set.empty[String])
+          R / 'users / 12131231232L,
+          R / 'users / 121312787632L
         )
       )
     ))(obj)
   }
 
   "Unsubscribe writes" should "write unsubscribe response schema" in {
-    val request = Request.Unsubscribe(ctx, UnsubscriptionBody(
-      List(
-        UnsubscriptionOp(R("/users/123213213123/"), Set("name", "age")),
-        UnsubscriptionOp(R("/users/12113435123212/"), Set.empty)
-      )
-    ))
 
     val response = UnsubscribeResult(Set(
-      SubscriptionOpResult(R("/users/123213213123/"), Set("name", "age")),
-      SubscriptionOpResult(R("/users/12113435123212/"), Set.empty)
+      R("/users/123213213123/"),
+      R("/users/12113435123212/")
     ))
 
     val obj = Json.toJson(response)
@@ -61,19 +50,11 @@ class ResponseWritesSpec extends FlatSpec with Matchers {
     assertResult(Json.obj(
       "body" -> Json.obj(
         "unsubscriptions" -> Set(
-          Json.obj("r" -> "/users/123213213123/", "fields" -> Set("name", "age")),
-          Json.obj("r" -> "/users/12113435123212/", "fields" -> Set.empty[String])
+          R / 'users / 123213213123L,
+          R / 'users / 12113435123212L
         )
       )
     ))(obj)
-  }
-
-  "Get Subscription writes" should "write get-subscription response schema" in {
-    val response = GetSubscriptionResult(R("/users/1123123/"), Set("name"))
-
-    val obj = Json.toJson(response)
-
-    assertResult(Json.obj("r" -> "/users/1123123/", "body" -> Json.obj("fields" -> Set("name"))))(obj)
   }
 
   "Get writes" should "write get response schema" in {
