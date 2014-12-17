@@ -107,16 +107,4 @@ package object gorilla {
     def compare(a: GorillaLogEntry, b: GorillaLogEntry) = a.rev compare b.rev
   }
 
-  case object EventStored extends GorillaLogResponse
-
-  trait GorillaLogError extends GorillaLogResponse
-
-  object GorillaLogError {
-
-    case object UnsupportedEvent extends GorillaLogError
-
-    case class UnexpectedError(reason: String) extends GorillaLogError
-
-  }
-
 }

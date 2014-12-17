@@ -62,9 +62,8 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   override val requestRouterProps = Props(new RequestRouter(this, modelRegistryPersistentId))
 
   implicit val session = db.createSession()
-  GorillaEventCenter.initializeDB()
 
-  override def gorillaEventCenterProps = Props(classOf[GorillaEventCenter], this, session)
+  override def gorillaEventCenterProps = Props(classOf[GorillaEventCenterFixture], this, session)
 
   override val collectionActorProps = Props(classOf[TestCollectionActor], this)
   override val subscriptionManagerProps = Props(classOf[SubscriptionManager], this)
@@ -78,6 +77,9 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
     Props(classOf[Replayer], this, objectSubscriber, rSubscription, maxMarker)
 
   override def boot() = {
+    //Create h2 tables if it wasn't exist
+    GorillaEventCenter.initializeDB()
+
     implicit val ec = actorSystem.dispatcher
     val driver = new MongoDriver
     val connection = driver.connection(config.Mongodb.servers)
