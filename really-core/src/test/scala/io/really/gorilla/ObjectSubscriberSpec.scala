@@ -4,33 +4,20 @@
 
 package io.really.gorilla
 
-import akka.actor.Props
-import akka.testkit.{ TestProbe, TestActorRef }
-import _root_.io.really._
-import _root_.io.really.gorilla.SubscriptionManager.{ UpdateSubscriptionFields, Unsubscribe }
-import _root_.io.really.protocol.ProtocolFormats.PushMessageWrites.{ Deleted, Created }
 import akka.actor.{ Terminated, Props, ActorSystem }
-import akka.persistence.{ Update => PersistenceUpdate }
-import com.typesafe.config.ConfigFactory
-import play.api.libs.json.{ JsString, Json }
 import akka.testkit.{ EventFilter, TestProbe, TestActorRef }
 import _root_.io.really._
-import _root_.io.really.model.CollectionActor.Event.Updated
-import _root_.io.really.model.persistent.ModelRegistry.ModelOperation.{ ModelUpdated, ModelDeleted }
-import _root_.io.really.protocol.{ UpdateOp, SubscriptionFailure, UpdateCommand }
-import _root_.io.really.model.{ DataType, ValueField }
-import _root_.io.really.protocol.{ UpdateOp, SubscriptionFailure }
-import _root_.io.really.protocol.SubscriptionFailure.SubscriptionFailureWrites
-import _root_.io.really.gorilla.SubscriptionManager.UpdateSubscriptionFields
-import _root_.io.really.protocol.ProtocolFormats.PushMessageWrites.Deleted
+import _root_.io.really.gorilla.SubscriptionManager.{ UpdateSubscriptionFields, Unsubscribe }
+import _root_.io.really.protocol.ProtocolFormats.PushMessageWrites.{ Created, Deleted }
 import _root_.io.really.gorilla.GorillaEventCenter.ReplayerSubscribed
 import _root_.io.really.fixture.PersistentModelStoreFixture
-import _root_.io.really.model.{ CollectionMetadata, JsScript, JsHooks, Model }
+import _root_.io.really.model._
 import _root_.io.really.model.persistent.ModelRegistry.CollectionActorMessage
 import _root_.io.really.model.persistent.ModelRegistry.ModelResult
 import _root_.io.really.model.persistent.PersistentModelStore
 import akka.persistence.{ Update => PersistenceUpdate }
-import play.api.libs.json.Json
+import com.typesafe.config.ConfigFactory
+import play.api.libs.json._
 import scala.slick.driver.H2Driver.simple._
 
 class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config) {

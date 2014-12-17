@@ -4,21 +4,19 @@
 package io.really.gorilla
 
 import akka.actor._
+import scala.slick.driver.H2Driver.simple._
 import akka.contrib.pattern.DistributedPubSubMediator.Subscribe
 import akka.contrib.pattern.ShardRegion
 import io.really.gorilla.SubscriptionManager.ObjectSubscribed
 import io.really.model.{ Model, Helpers }
 import io.really._
-
-import scala.slick.driver.H2Driver.simple._
 import scala.slick.jdbc.meta.MTable
+import EventLogs._
 
 /**
  * The gorilla event centre is an actor that receives events from the Collection View Materializer
- * and store it in a persistent ordered store (MongoDB per collection (R) capped collection)
- * and return on success a confirmation EventStored to the view materializer to proceed with he next message.
+ * and store it in a persistent ordered store (H2 database)
  * It ensures that we are not storing the same revision twice for the same object (by ignoring the event)
- * while confirming that it's stored (faking store).
  * publishes the event on the Gorilla PubSub asynchronously for real-time event distribution
  * @param globals
  */
@@ -30,15 +28,11 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
 
   val r: R = Helpers.getRFromBucketID(bucketID)
 
-  private[this] val config = globals.config.EventLogStorage
-
-  private[this] var maxMarkers: Map[R, Revision] = Map.empty
-
   def receive: Receive = handleEvent orElse handleSubscriptions
 
   def handleEvent: Receive = {
     case msg: PersistentEvent =>
-      sender() ! persistEvent(msg)
+      persistEvent(msg)
     //todo pass it to the pubsub
 
     case evt: StreamingEvent =>
@@ -52,8 +46,8 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
   def handleSubscriptions: Receive = {
     case NewSubscription(rSub) =>
       val objectSubscriber = context.actorOf(globals.objectSubscriberProps(rSub))
-      maxMarkers.get(r) match {
-        case Some(rev) =>
+      markers.filter(_.r === rSub.r).firstOption match {
+        case Some((_, rev)) =>
           val replayer = context.actorOf(globals.replayerProps(rSub, objectSubscriber, Some(rev)))
           globals.mediator ! Subscribe(rSub.r.toString, replayer)
           objectSubscriber ! ReplayerSubscribed(replayer)
@@ -65,26 +59,29 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
       sender() ! ObjectSubscribed(objectSubscriber)
   }
 
-  private def persistEvent(persistentEvent: PersistentEvent): GorillaLogResponse =
+  private def persistEvent(persistentEvent: PersistentEvent): Unit =
     persistentEvent match {
-      case PersistentCreatedEvent(event) =>
+      case PersistentCreatedEvent(event) if !markers.filter(_.r === event.r).exists.run =>
+        markers += (event.r, 1l)
         events += EventLog("created", event.r, 1l, event.modelVersion, event.obj,
           event.context.auth, None)
-        EventStored
-      case PersistentUpdatedEvent(event, obj) =>
+      case PersistentUpdatedEvent(event, obj) if markers.filter(_.r === event.r).exists.run =>
+        markers.filter(_.r === event.r).update((event.r, event.rev))
         events += EventLog("updated", event.r, event.rev, event.modelVersion, obj,
           event.context.auth, Some(event.ops))
-        EventStored
-      case _ => GorillaLogError.UnsupportedEvent
+      case event =>
+        //ignore this event as the event already stored
+        log.info(s"Ignore this event as the event already stored or not supported $event")
     }
 
   private def removeOldModelEvents(model: Model) =
-    events.filter(_.ModelVersion < model.collectionMeta.version).delete
+    events.filter(_.modelVersion < model.collectionMeta.version).delete
 }
 
 object GorillaEventCenter {
   // the query interface for the log table
   val events: TableQuery[EventLogs] = TableQuery[EventLogs]
+  val markers: TableQuery[EventLogMarkers] = TableQuery[EventLogMarkers]
 
   /**
    * Create the events table
@@ -94,6 +91,7 @@ object GorillaEventCenter {
   def initializeDB()(implicit session: Session) =
     if (MTable.getTables(EventLogs.tableName).list.isEmpty) {
       events.ddl.create
+      markers.ddl.create
     }
 
   case class ReplayerSubscribed(replayer: ActorRef)
