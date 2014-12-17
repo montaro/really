@@ -15,7 +15,6 @@ package io {
   import org.joda.time.DateTime
   import play.api.libs.json._
   import reactivemongo.api.DefaultDB
-  import scala.slick.driver.H2Driver.simple._
 
   package object really {
     type CID = String

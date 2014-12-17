@@ -4,10 +4,10 @@
 
 package io.really.gorilla
 
-import akka.actor.{Terminated, Props, ActorSystem}
-import akka.testkit.{TestProbe, TestActorRef}
+import akka.actor.{ Terminated, Props, ActorSystem }
+import akka.testkit.{ TestProbe, TestActorRef }
 import _root_.io.really._
-import _root_.io.really.gorilla.SubscriptionManager.{UpdateSubscriptionFields, Unsubscribe}
+import _root_.io.really.gorilla.SubscriptionManager.{ UpdateSubscriptionFields, Unsubscribe }
 import _root_.io.really.protocol.ProtocolFormats.PushMessageWrites.Deleted
 import _root_.io.really.gorilla.SubscribeAggregator.Subscribed
 import _root_.io.really.gorilla.GorillaEventCenter._
@@ -16,7 +16,7 @@ import _root_.io.really.model.Model
 import _root_.io.really.model.persistent.ModelRegistry.CollectionActorMessage
 import _root_.io.really.model.persistent.ModelRegistry.ModelResult
 import _root_.io.really.model.persistent.PersistentModelStore
-import akka.persistence.{Update => PersistenceUpdate}
+import akka.persistence.{ Update => PersistenceUpdate }
 
 import scala.slick.driver.H2Driver.simple._
 

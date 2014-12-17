@@ -27,11 +27,11 @@ class EventLogs(tag: Tag)
   def eventType: Column[String] = column[String]("TYPE")
   def r: Column[R] = column[R]("R")
   def rev: Column[Long] = column[Long]("REV")
-  def ModelVersion: Column[Long] = column[Long]("MODEL_REVISION")
+  def modelVersion: Column[Long] = column[Long]("MODEL_REVISION")
   def obj: Column[JsObject] = column[JsObject]("OBJ")
   def user: Column[UserInfo] = column[UserInfo]("USER")
   def ops: Column[Option[List[UpdateOp]]] = column[Option[List[UpdateOp]]]("OPS")
-  def * = (eventType, r, rev, ModelVersion, obj, user, ops) <> (EventLog.tupled, EventLog.unapply)
+  def * = (eventType, r, rev, modelVersion, obj, user, ops) <> (EventLog.tupled, EventLog.unapply)
 }
 
 trait EventLogMappers {
@@ -75,4 +75,18 @@ object EventLogs extends EventLogMappers {
 
   implicit val opsType = opsColumnType
 
+}
+
+object EventLogMarkers extends EventLogMappers {
+  val tableName = "EVENTS-MARKERS"
+}
+
+class EventLogMarkers(tag: Tag)
+    extends Table[(R, Long)](tag, EventLogMarkers.tableName) with EventLogMappers {
+
+  implicit val rType = rColumnType
+
+  def r: Column[R] = column[R]("R", O.PrimaryKey)
+  def rev: Column[Long] = column[Long]("REV")
+  def * = (r, rev)
 }
